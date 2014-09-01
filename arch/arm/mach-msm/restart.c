@@ -10,10 +10,6 @@
  * GNU General Public License for more details.
  *
  */
- /*===========================================================================
- when         who        what, where, why                         comment tag
- 2010-12-15   ruijiagui  Add ZTE_FEATURE_SD_DUMP feature          ZTE_RJG_RIL_20121214
- ===========================================================================*/
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -51,14 +47,14 @@
 
 #define SCM_IO_DISABLE_PMIC_ARBITER	1
 
-#ifdef CONFIG_MSM_RESTART_V2
-#define use_restart_v2()	1
-#else
-#define use_restart_v2()	0
+#ifdef CONFIG_LGE_CRASH_HANDLER
+#define LGE_ERROR_HANDLER_MAGIC_NUM	0xA97F2C46
+#define LGE_ERROR_HANDLER_MAGIC_ADDR	0x18
+void *lge_error_handler_cookie_addr;
+static int ssr_magic_number = 0;
 #endif
 
 static int restart_mode;
-static int ignore_sd_dump = 0;
 void *restart_reason;
 
 int pmic_reset_irq;
@@ -74,18 +70,10 @@ static int download_mode = 1;
 module_param_call(download_mode, dload_set, param_get_int,
 			&download_mode, 0644);
 
-/*Use Qualcomm's usb product_id, as Qualcomm's engineer 
-  may not install OEM's usb driver,wangzy,3of4*/
-extern void use_qualcomm_usb_product_id(void);
-/*end*/
-
 static int panic_prep_restart(struct notifier_block *this,
 			      unsigned long event, void *ptr)
 {
 	in_panic = 1;
-	/*Use Qualcomm's usb product_id if enter download due to panic,wangzy,4of4*/
-	use_qualcomm_usb_product_id();
-	/*end*/
 	return NOTIFY_DONE;
 }
 
@@ -93,39 +81,19 @@ static struct notifier_block panic_blk = {
 	.notifier_call	= panic_prep_restart,
 };
 
-#ifndef CONFIG_ZTE_SEC_MEM_DUMP 
-static bool enable_debug_fuse=true;
-module_param_named(enable_debug_fuse, enable_debug_fuse, bool, S_IRUGO | S_IWUSR);
-#define ZTE_UEFI_MAGIC_NUM  0x54880573
-#endif
 static void set_dload_mode(int on)
 {
 	if (dload_mode_addr) {
 		__raw_writel(on ? 0xE47B337D : 0, dload_mode_addr);
 		__raw_writel(on ? 0xCE14091A : 0,
 		       dload_mode_addr + sizeof(unsigned int));
-        //ZTE_RJG_RIL_20121214 begin
-        //Add flag for sd dump
-        __raw_writel((on && !ignore_sd_dump) ? 0x20121221 : 0,
-		       dload_mode_addr + sizeof(unsigned int)*15);
-        //ZTE_RJG_RIL_20121214 end
-
-#ifndef CONFIG_ZTE_SEC_MEM_DUMP 
-       //modify by stone 20130418 for memory dump with efuse
-         __raw_writel((on&&enable_debug_fuse)  ? ZTE_UEFI_MAGIC_NUM : 0xFFFFFFFF,
-		       dload_mode_addr + sizeof(unsigned int)*3);	
+#ifdef CONFIG_LGE_CRASH_HANDLER
+		__raw_writel(on ? LGE_ERROR_HANDLER_MAGIC_NUM : 0,
+				lge_error_handler_cookie_addr);
 #endif
 		mb();
 	}
 }
-
-//zte jiangfeng
-void enable_dload_mode(void)
-{
-	pr_info("enable dload_mode\n");
-	set_dload_mode(1);
-}
-//zte jiangfeng
 
 static int dload_set(const char *val, struct kernel_param *kp)
 {
@@ -144,6 +112,9 @@ static int dload_set(const char *val, struct kernel_param *kp)
 	}
 
 	set_dload_mode(download_mode);
+#ifdef CONFIG_LGE_CRASH_HANDLER
+	ssr_magic_number = 0;
+#endif
 
 	return 0;
 }
@@ -154,14 +125,12 @@ static int dload_set(const char *val, struct kernel_param *kp)
 void msm_set_restart_mode(int mode)
 {
 	restart_mode = mode;
+#ifdef CONFIG_LGE_CRASH_HANDLER
+	if (download_mode == 1 && (mode & 0xFFFF0000) == 0x6D630000)
+		panic("LGE crash handler detected panic");
+#endif
 }
 EXPORT_SYMBOL(msm_set_restart_mode);
-
-void msm_ignore_sd_dump(int enable)
-{
-	ignore_sd_dump = !!enable;
-}
-EXPORT_SYMBOL(msm_ignore_sd_dump);
 
 static void __msm_power_off(int lower_pshold)
 {
@@ -172,11 +141,7 @@ static void __msm_power_off(int lower_pshold)
 	pm8xxx_reset_pwr_off(0);
 
 	if (lower_pshold) {
-		if (!use_restart_v2())
-			__raw_writel(0, PSHOLD_CTL_SU);
-		else
-			__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
-
+		__raw_writel(0, PSHOLD_CTL_SU);
 		mdelay(10000);
 		printk(KERN_ERR "Powering off has failed\n");
 	}
@@ -189,8 +154,7 @@ static void msm_power_off(void)
 	__msm_power_off(1);
 }
 
-//static void cpu_power_off(void *data)
-void cpu_power_off(void *data)
+static void cpu_power_off(void *data)
 {
 	int rc;
 
@@ -218,41 +182,61 @@ void cpu_power_off(void *data)
 		;
 }
 
-void msm_restart(char mode, const char *cmd);
 static irqreturn_t resout_irq_handler(int irq, void *dev_id)
 {
-#if 0
 	pr_warn("%s PMIC Initiated shutdown\n", __func__);
 	oops_in_progress = 1;
 	smp_call_function_many(cpu_online_mask, cpu_power_off, NULL, 0);
 	if (smp_processor_id() == 0)
 		cpu_power_off(NULL);
-#else	
-   #ifdef CONFIG_ZTE_LONGPOWER_FOR_HW_RESET
-     download_mode=0;
-     msm_restart(0,0);
-   #else
-	 pr_info("%s PMIC Initiated reset\n", __func__);
-
-     /*slf2012_0613 note:pm8921 will not care the PS_HOLD when stay on,so pull PS_HPLD
-        to low cannot reset the handset */
-     pm8xxx_stay_on();
-   
-     restart_mode = RESTART_DLOAD;
-     download_mode=1;
-     msm_restart(0,0);
-   #endif
-#endif
 	preempt_disable();
 	while (1)
 		;
 	return IRQ_HANDLED;
 }
 
-static void msm_restart_prepare(const char *cmd)
+#ifdef CONFIG_LGE_CRASH_HANDLER
+#define SUBSYS_NAME_MAX_LENGTH	40
+
+int get_ssr_magic_number(void)
 {
+	return ssr_magic_number;
+}
+
+void set_ssr_magic_number(const char* subsys_name)
+{
+	int i;
+	const char *subsys_list[] = {
+		"modem", "riva", "dsps", "lpass",
+		"external_modem", "gss",
+	};
+
+	ssr_magic_number = (0x6d630000 | 0x0000f000);
+
+	for (i=0; i < ARRAY_SIZE(subsys_list); i++) {
+		if (!strncmp(subsys_list[i], subsys_name,
+					SUBSYS_NAME_MAX_LENGTH)) {
+			ssr_magic_number = (0x6d630000 | ((i+1)<<12));
+			break;
+		}
+	}
+}
+
+void set_kernel_crash_magic_number(void)
+{
+	pet_watchdog();
+	if (ssr_magic_number == 0)
+		__raw_writel(0x6d630100, restart_reason);
+	else
+		__raw_writel(restart_mode, restart_reason);
+}
+#endif /* CONFIG_LGE_CRASH_HANDLER */
+
+void msm_restart(char mode, const char *cmd)
+{
+
 #ifdef CONFIG_MSM_DLOAD_MODE
-  #if 0
+
 	/* This looks like a normal reboot at this point. */
 	set_dload_mode(0);
 
@@ -260,22 +244,20 @@ static void msm_restart_prepare(const char *cmd)
 	set_dload_mode(in_panic);
 
 	/* Write download mode flags if restart_mode says so */
-	if (restart_mode == RESTART_DLOAD)
+	if (restart_mode == RESTART_DLOAD) {
 		set_dload_mode(1);
+#ifdef CONFIG_LGE_CRASH_HANDLER
+		writel(0x6d63c421, restart_reason);
+		goto reset;
+#endif
+	}
 
 	/* Kill download mode if master-kill switch is set */
 	if (!download_mode)
 		set_dload_mode(0);
-  #else
-	if(restart_mode == RESTART_DLOAD)
-		set_dload_mode(1);
-	else if(download_mode)
-		set_dload_mode(in_panic);
-	else
-		set_dload_mode(0);
-
-  #endif
 #endif
+
+	printk(KERN_NOTICE "Going down for restart now\n");
 
 	pm8xxx_reset_pwr_off(1);
 
@@ -284,43 +266,34 @@ static void msm_restart_prepare(const char *cmd)
 			__raw_writel(0x77665500, restart_reason);
 		} else if (!strncmp(cmd, "recovery", 8)) {
 			__raw_writel(0x77665502, restart_reason);
-		} else if (!strncmp(cmd, "ftmmode", 7)) {
-		/*ZTE_BOOT+20130419 huang.yanjun support:adb reboot ftmmode*/			
-			__raw_writel(0x776655ee, restart_reason);
-		} 
-		else if (!strncmp(cmd, "oem-", 4)) {
+		} else if (!strncmp(cmd, "oem-", 4)) {
 			unsigned long code;
 			code = simple_strtoul(cmd + 4, NULL, 16) & 0xff;
 			__raw_writel(0x6f656d00 | code, restart_reason);
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		__raw_writel(0x77665501, restart_reason);
 	}
-}
+#ifdef CONFIG_LGE_CRASH_HANDLER
+	if (in_panic == 1)
+		set_kernel_crash_magic_number();
+reset:
+#endif /* CONFIG_LGE_CRASH_HANDLER */
 
-void msm_restart(char mode, const char *cmd)
-{
-	printk(KERN_NOTICE "Going down for restart now\n");
+	__raw_writel(0, msm_tmr0_base + WDT0_EN);
+	if (!(machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())) {
+		mb();
+		__raw_writel(0, PSHOLD_CTL_SU); /* Actually reset the chip */
+		mdelay(5000);
+		pr_notice("PS_HOLD didn't work, falling back to watchdog\n");
+	}
 
-	msm_restart_prepare(cmd);
-
-	if (!use_restart_v2()) {
-		__raw_writel(0, msm_tmr0_base + WDT0_EN);
-		if (!(machine_is_msm8x60_fusion() ||
-		      machine_is_msm8x60_fusn_ffa())) {
-			mb();
-			 /* Actually reset the chip */
-			__raw_writel(0, PSHOLD_CTL_SU);
-			mdelay(5000);
-			pr_notice("PS_HOLD didn't work, falling back to watchdog\n");
-		}
-
-		__raw_writel(1, msm_tmr0_base + WDT0_RST);
-		__raw_writel(5*0x31F3, msm_tmr0_base + WDT0_BARK_TIME);
-		__raw_writel(0x31F3, msm_tmr0_base + WDT0_BITE_TIME);
-		__raw_writel(1, msm_tmr0_base + WDT0_EN);
-	} else
-		__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
+	__raw_writel(1, msm_tmr0_base + WDT0_RST);
+	__raw_writel(5*0x31F3, msm_tmr0_base + WDT0_BARK_TIME);
+	__raw_writel(0x31F3, msm_tmr0_base + WDT0_BITE_TIME);
+	__raw_writel(1, msm_tmr0_base + WDT0_EN);
 
 	mdelay(10000);
 	printk(KERN_ERR "Restarting has failed\n");
@@ -340,6 +313,10 @@ static int __init msm_pmic_restart_init(void)
 		pr_warn("no pmic restart interrupt specified\n");
 	}
 
+#ifdef CONFIG_LGE_CRASH_HANDLER
+	__raw_writel(0x6d63ad00, restart_reason);
+#endif
+
 	return 0;
 }
 
@@ -350,6 +327,10 @@ static int __init msm_restart_init(void)
 #ifdef CONFIG_MSM_DLOAD_MODE
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	dload_mode_addr = MSM_IMEM_BASE + DLOAD_MODE_ADDR;
+#ifdef CONFIG_LGE_CRASH_HANDLER
+	lge_error_handler_cookie_addr = MSM_IMEM_BASE +
+		LGE_ERROR_HANDLER_MAGIC_ADDR;
+#endif
 	set_dload_mode(download_mode);
 #endif
 	msm_tmr0_base = msm_timer_get_timer0_base();

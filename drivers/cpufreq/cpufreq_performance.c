@@ -14,9 +14,6 @@
 #include <linux/module.h>
 #include <linux/cpufreq.h>
 #include <linux/init.h>
-#include <mach/socinfo.h>	//LHX_PM_20120712 FTM LOW POWER
-static int allow_to_set_max_freq = 0;
-module_param_named(ftm_allow_max_freq, allow_to_set_max_freq, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 
 static int cpufreq_governor_performance(struct cpufreq_policy *policy,
@@ -25,24 +22,10 @@ static int cpufreq_governor_performance(struct cpufreq_policy *policy,
 	switch (event) {
 	case CPUFREQ_GOV_START:
 	case CPUFREQ_GOV_LIMITS:
-#ifdef ZTE_BOOT_MODE
-	if((1==socinfo_get_ftm_flag()) &&(0 == allow_to_set_max_freq))	//FTM boot,set to lower cpufreq
-	{
-		pr_info("zte_pm  setting  FTM to %u kHz because of event %u\n",
-						policy->min, event);
-		__cpufreq_driver_target(policy, policy->min,
-						CPUFREQ_RELATION_H);
-	}
-	else
-	{
-#endif
 		pr_debug("setting to %u kHz because of event %u\n",
 						policy->max, event);
 		__cpufreq_driver_target(policy, policy->max,
 						CPUFREQ_RELATION_H);
-#ifdef ZTE_BOOT_MODE
-			}
-#endif
 		break;
 	default:
 		break;

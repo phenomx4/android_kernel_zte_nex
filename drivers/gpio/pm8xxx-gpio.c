@@ -1,7 +1,4 @@
-/*
- * Qualcomm PMIC8XXX GPIO driver
- *
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,9 +82,6 @@ static int pm_gpio_get(struct pm_gpio_chip *pm_gpio_chip, unsigned gpio)
 {
 	int	mode;
 
-	if (gpio >= pm_gpio_chip->gpio_chip.ngpio || pm_gpio_chip == NULL)
-		return -EINVAL;
-
 	/* Get gpio value from config bank 1 if output gpio.
 	   Get gpio value from IRQ RT status register for all other gpio modes.
 	 */
@@ -106,9 +100,6 @@ static int pm_gpio_set(struct pm_gpio_chip *pm_gpio_chip,
 	int	rc;
 	u8	bank1;
 	unsigned long flags;
-
-	if (gpio >= pm_gpio_chip->gpio_chip.ngpio || pm_gpio_chip == NULL)
-		return -EINVAL;
 
 	spin_lock_irqsave(&pm_gpio_chip->pm_lock, flags);
 	bank1 = PM_GPIO_WRITE
@@ -268,201 +259,6 @@ static void pm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *gpio_chip)
 		seq_printf(s, "\n");
 	}
 }
-#ifndef ZTE_GPIO_DEBUG
-#define ZTE_GPIO_DEBUG
-#endif
-
-#ifdef ZTE_GPIO_DEBUG
-static struct gpio_chip *pm8xxx_gpio_chip=NULL;
-int pm8xxx_dump_gpios(struct seq_file *m, int curr_len, char *gpio_buffer)
-{
-	char read_buf[256];
-	char *title_msg = "---------- PMIC GPIO ----------";
-	static const char * const cmode[] = { "in", "in/out", "out", "off" };
-	u8 mode, state, bank[PM_GPIO_BANKS],tmp_bank, func_sel,pull,vin_sel, drv, inv_int_pol,buffer;
-	const char *label;
-	int i, j,len;
-	struct gpio_chip *gpio_chip = pm8xxx_gpio_chip;	
-	struct pm_gpio_chip *pm_gpio_chip = dev_get_drvdata(gpio_chip->dev);
-
-	if (m) {
-		seq_printf(m, "%s\n", title_msg);
-	} else {
-		pr_info("%s\n", title_msg);
-		curr_len += sprintf(gpio_buffer + curr_len,
-		"%s\n", title_msg);
-	}
-
-	
-	for (i = 0; i < gpio_chip->ngpio; i++) {
-			len=0;
-			label = gpiochip_is_requested(gpio_chip, i);
-			mode = (pm_gpio_chip->bank1[i] & PM_GPIO_MODE_MASK) >>
-				PM_GPIO_MODE_SHIFT;
-			state = pm_gpio_get(pm_gpio_chip, i);	
-			
-#if 1
-			for (j = 0; j < PM_GPIO_BANKS; j++) {
-				tmp_bank = j << PM_GPIO_BANK_SHIFT;
-				pm8xxx_writeb(gpio_chip->dev->parent,
-						SSBI_REG_ADDR_GPIO(i),
-						tmp_bank);
-				pm8xxx_readb(gpio_chip->dev->parent,
-						SSBI_REG_ADDR_GPIO(i),
-						&tmp_bank);
-
-                            //len += sprintf(read_buf + len," 0x%02x", bank);
-                            
-				bank[j]=tmp_bank;
-			}
-
-		     len += sprintf(read_buf + len, "PM_GPIO[%-2d]: ", i+1);
-			 
-		     func_sel = (bank[4] & PM_GPIO_FUNC_MASK) >>PM_GPIO_FUNC_SHIFT;	 
-		     len += sprintf(read_buf + len, "[FS]0x%x, ", func_sel);	 
-		  
-		     len += sprintf(read_buf + len, "[DIR]%-6.6s, ", cmode[mode]);
-			 
-		     len += sprintf(read_buf + len, "[VAL]%s, ", state? "HIGH" : " LOW");
-      	
-       	    pull = (bank[2] & PM_GPIO_PULL_MASK) >>PM_GPIO_PULL_SHIFT;	 
-       	    switch (pull) {
-       	       case 0x0:
-       			len += sprintf(read_buf + len, "[PULL]UP_30, ");
-       			break;
-       	       case 0x1:
-       			len += sprintf(read_buf + len, "[PULL]unknown, ");
-       			break;
-       		case 0x2:
-       			len += sprintf(read_buf + len, "[PULL]UP_31_5, ");
-       			break;
-       		case 0x3:
-       			len += sprintf(read_buf + len, "[PULL]UP_1_5_30, ");
-       			break;
-			case 0x4:
-       			len += sprintf(read_buf + len, "[PULL]DN, ");
-       			break;
-       		case 0x5:
-       			len += sprintf(read_buf + len, "[PULL]NO, ");
-       			break;
-				
-       		default:
-				len += sprintf(read_buf + len, "[PULL]unknown, ");
-       			break;
-       		}	 
-
-		    vin_sel = (bank[0] & PM_GPIO_VIN_MASK) >>PM_GPIO_VIN_SHIFT;	 
-       	    switch (vin_sel) {
-       	       case 0x0:
-       			len += sprintf(read_buf + len, "[VIN]VPH, ");
-       			break;
-       	       case 0x1:
-       			len += sprintf(read_buf + len, "[VIN]BB, ");
-       			break;
-       		case 0x2:
-       			len += sprintf(read_buf + len, "[VIN]S4, ");
-       			break;
-       		case 0x3:
-       			len += sprintf(read_buf + len, "[VIN]L15, ");
-       			break;
-			case 0x4:
-       			len += sprintf(read_buf + len, "[VIN]L4, ");
-       			break;
-       		case 0x5:
-       			len += sprintf(read_buf + len, "[VIN]L3, ");
-       			break;	
-			case 0x6:
-       			len += sprintf(read_buf + len, "[VIN]L17, ");
-       			break;	
-       		default:
-				len += sprintf(read_buf + len, "[VIN]unknown, ");	
-       			break;
-       		}
-
-		    buffer = bank[1] &PM_GPIO_OUT_BUFFER;	 
-       	    switch (buffer) {
-       	       case 0x0:
-       			len += sprintf(read_buf + len, "[BUF]CMOS, ");
-       			break;
-       	       case PM_GPIO_OUT_BUFFER:
-       			len += sprintf(read_buf + len, "[BUF]OD, ");
-       			break;
-	      		default:
-				len += sprintf(read_buf + len, "[BUF]unknown, ");	
-       			break;
-       		}
-	
-		    drv = (bank[3] & PM_GPIO_OUT_STRENGTH_MASK) >>PM_GPIO_OUT_STRENGTH_SHIFT;	 
-       	    switch (drv) {
-       	       case 0x0:
-       			len += sprintf(read_buf + len, "[DRV]NO, ");
-       			break;
-       	       case 0x1:
-       			len += sprintf(read_buf + len, "[DRV]HIGH, ");
-       			break;
-       		case 0x2:
-       			len += sprintf(read_buf + len, "[DRV]MED, ");
-       			break;
-       		case 0x3:
-       			len += sprintf(read_buf + len, "[DRV]LOW, ");
-       			break;
-	      		default:
-				len += sprintf(read_buf + len, "[DRV]unknown, ");	
-       			break;
-       		}
-
-		    inv_int_pol =bank[5]&PM_GPIO_NON_INT_POL_INV;
-       	    switch (inv_int_pol) {
-       	       case 0x0:
-       			len += sprintf(read_buf + len, "[INV]YES, ");
-       			break;
-       	       case PM_GPIO_NON_INT_POL_INV:
-       			len += sprintf(read_buf + len, "[INV]NO, ");
-       			break;
- 	      		default:
-				len += sprintf(read_buf + len, "[INV]unknown, ");	
-       			break;
-       		}
-
-		   len += sprintf(read_buf + len, "[OWNER]%-24.24s ", label ? label : "--");
-
-#else
-			len += sprintf(read_buf + len, "gpio-%-3d (%-12.12s) %-10.10s"
-					" %s",
-					gpio_chip->base + i,
-					label ? label : "--",
-					cmode[mode],
-					state ? "hi" : "lo");
-		
-			for (j = 0; j < PM_GPIO_BANKS; j++) {
-				bank = j << PM_GPIO_BANK_SHIFT;
-				pm8xxx_writeb(gpio_chip->dev->parent,
-						SSBI_REG_ADDR_GPIO(i),
-						bank);
-				pm8xxx_readb(gpio_chip->dev->parent,
-						SSBI_REG_ADDR_GPIO(i),
-						&bank);
-				len += sprintf(read_buf + len," 0x%02x", bank);
-			}
-#endif	
-		
-		//	len += sprintf(read_buf + len,"\n");
-			read_buf[255] = '\0';
-			if (m) {
-				seq_printf(m, "%s\n", read_buf);
-			} else {
-				pr_info("%s\n", read_buf);
-				curr_len += sprintf(gpio_buffer +
-				curr_len, "%s\n", read_buf);
-			}
-		}
-	
-	return curr_len;
-}
-#else
-int pm8xxx_dump_gpios(struct seq_file *m, int curr_len, char *gpio_buffer)
-{}
-#endif
 
 static int __devinit pm_gpio_probe(struct platform_device *pdev)
 {
@@ -488,9 +284,7 @@ static int __devinit pm_gpio_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto free_chip;
 	}
-#ifdef ZTE_GPIO_DEBUG
-	pm8xxx_gpio_chip = &(pm_gpio_chip->gpio_chip);
-#endif
+
 	spin_lock_init(&pm_gpio_chip->pm_lock);
 	pm_gpio_chip->gpio_chip.label = "pm-gpio";
 	pm_gpio_chip->gpio_chip.direction_input	= pm_gpio_direction_input;
@@ -500,7 +294,7 @@ static int __devinit pm_gpio_probe(struct platform_device *pdev)
 	pm_gpio_chip->gpio_chip.set = pm_gpio_write;
 	pm_gpio_chip->gpio_chip.dbg_show = pm_gpio_dbg_show;
 	pm_gpio_chip->gpio_chip.ngpio = pdata->gpio_cdata.ngpios;
-	pm_gpio_chip->gpio_chip.can_sleep = 1;
+	pm_gpio_chip->gpio_chip.can_sleep = 0;
 	pm_gpio_chip->gpio_chip.dev = &pdev->dev;
 	pm_gpio_chip->gpio_chip.base = pdata->gpio_base;
 	pm_gpio_chip->irq_base = platform_get_irq(pdev, 0);

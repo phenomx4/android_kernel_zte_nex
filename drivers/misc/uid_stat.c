@@ -30,74 +30,13 @@ static DEFINE_SPINLOCK(uid_lock);
 static LIST_HEAD(uid_list);
 static struct proc_dir_entry *parent;
 
-#ifndef CONFIG_ZTE_PLATFORM_UID_STAT
-#define CONFIG_ZTE_PLATFORM_UID_STAT 1
-#endif
-
 struct uid_stat {
 	struct list_head link;
 	uid_t uid;
-#if CONFIG_ZTE_PLATFORM_UID_STAT
-	atomic_t tcp_rcv_old;
-	atomic_t tcp_snd_old;
-	char name[32];
-#endif
 	atomic_t tcp_rcv;
 	atomic_t tcp_snd;
 };
-#if CONFIG_ZTE_PLATFORM_UID_STAT
-#include <linux/module.h>
-#include <linux/mm.h>
-#include <linux/sched.h>
-enum {
-	DEBUG_TCP_SND = 1U << 0,
-	DEBUG_TCP_RCV = 1U << 1,
-	DEBUG_TCP_DEBUG = 1U << 2,
-};
 
-static int debug_mask = 0;
-module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
-
-char cmdline_buf[PAGE_SIZE]={0};
-
-void save_tcpAfterResume(void) {
-	unsigned long flags;
-	struct uid_stat *entry;
-	
-	if ((debug_mask & DEBUG_TCP_DEBUG)!=DEBUG_TCP_DEBUG)
-		return;
-	spin_lock_irqsave(&uid_lock, flags);
-	list_for_each_entry(entry, &uid_list, link) {
-		entry->tcp_rcv_old = entry->tcp_rcv;
-		entry->tcp_snd_old = entry->tcp_snd;
-	}
-	spin_unlock_irqrestore(&uid_lock, flags);
-}
-
-void dump_tcpAfterResume(void) {
-	unsigned long flags;
-	struct uid_stat *entry;
-
-	if ((debug_mask & DEBUG_TCP_DEBUG)!=DEBUG_TCP_DEBUG)
-		return;
-	spin_lock_irqsave(&uid_lock, flags);
-	list_for_each_entry(entry, &uid_list, link) {
-		if((entry->tcp_rcv.counter!=entry->tcp_rcv_old.counter)||(entry->tcp_snd_old.counter!=entry->tcp_snd.counter)) 
-		{
-			pr_info("[TCP]pkg=%s uid=%d rcv=%d snd=%d\n",
-				entry->name,entry->uid,
-				(entry->tcp_rcv.counter-entry->tcp_rcv_old.counter),
-				(entry->tcp_snd.counter-entry->tcp_snd_old.counter));
-		}
-	}
-	spin_unlock_irqrestore(&uid_lock, flags);
-}
-#else
-void clear_tcpAfterResume(void){}
-
-void dump_tcpAfterResume(void){}
-
-#endif
 static struct uid_stat *find_uid_stat(uid_t uid) {
 	unsigned long flags;
 	struct uid_stat *entry;
@@ -161,11 +100,6 @@ static struct uid_stat *create_stat(uid_t uid) {
 		return NULL;
 
 	new_uid->uid = uid;
-#if CONFIG_ZTE_PLATFORM_UID_STAT
-    atomic_set(&new_uid->tcp_rcv_old, INT_MIN);
-	atomic_set(&new_uid->tcp_snd_old, INT_MIN);
-#endif
-
 	/* Counters start at INT_MIN, so we can track 4GB of network traffic. */
 	atomic_set(&new_uid->tcp_rcv, INT_MIN);
 	atomic_set(&new_uid->tcp_snd, INT_MIN);
@@ -187,47 +121,6 @@ static struct uid_stat *create_stat(uid_t uid) {
 	return new_uid;
 }
 
-#ifdef CONFIG_ZTE_PLATFORM_UID_STAT
-
-
-
-static int get_cmdline(char * buffer)
-{
-	int res = 0;
-	unsigned int len;
-	struct mm_struct *mm = get_task_mm(current);
-	if (!mm)
-		goto out;
-	if (!mm->arg_end)
-		goto out_mm;	/* Shh! No looking before we're done */
-
- 	len = mm->arg_end - mm->arg_start;
- 
-	if (len > PAGE_SIZE)
-		len = PAGE_SIZE;
- 
-	res = access_process_vm(current, mm->arg_start, buffer, len, 0);
-
-	// If the nul at the end of args has been overwritten, then
-	// assume application is using setproctitle(3).
-	if (res > 0 && buffer[res-1] != '\0' && len < PAGE_SIZE) {
-		len = strnlen(buffer, res);
-		if (len < res) {
-		    res = len;
-		} else {
-			len = mm->env_end - mm->env_start;
-			if (len > PAGE_SIZE - res)
-				len = PAGE_SIZE - res;
-			res += access_process_vm(current, mm->env_start, buffer+res, len, 0);
-			res = strnlen(buffer, res);
-		}
-	}
-out_mm:
-	mmput(mm);
-out:
-	return res;
-}
-#endif
 int uid_stat_tcp_snd(uid_t uid, int size) {
 	struct uid_stat *entry;
 	activity_stats_update();
@@ -236,17 +129,6 @@ int uid_stat_tcp_snd(uid_t uid, int size) {
 			return -1;
 	}
 	atomic_add(size, &entry->tcp_snd);
-	#ifdef CONFIG_ZTE_PLATFORM_UID_STAT
-	if (debug_mask & DEBUG_TCP_DEBUG) {
-	    memset(cmdline_buf,0,sizeof(cmdline_buf));
-		get_cmdline(cmdline_buf);
-		snprintf(entry->name,sizeof(entry->name),cmdline_buf);
-		entry->name[31]=0;
-		if (debug_mask & DEBUG_TCP_SND)
-					pr_info("TCP_SND: uid=%d(%s) size=%d\n",uid,cmdline_buf,size);
-
-	}
-	#endif
 	return 0;
 }
 
@@ -258,17 +140,6 @@ int uid_stat_tcp_rcv(uid_t uid, int size) {
 			return -1;
 	}
 	atomic_add(size, &entry->tcp_rcv);
-	
-	#ifdef CONFIG_ZTE_PLATFORM_UID_STAT
-	if (debug_mask & DEBUG_TCP_DEBUG) {
-		memset(cmdline_buf,0,sizeof(cmdline_buf));
-		get_cmdline(cmdline_buf);
-		snprintf(entry->name,sizeof(entry->name),cmdline_buf);
-		entry->name[31]=0;
-		if (debug_mask & DEBUG_TCP_RCV)
-			pr_info("TCP_RCV: uid=%d(%s) size=%d\n",uid,cmdline_buf,size);
-	}
-	#endif
 	return 0;
 }
 

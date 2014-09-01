@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,10 +29,6 @@
  * TODO: When physical 8930/PM8038 hardware becomes
  * available, remove this block.
  */
-#ifdef CONFIG_INPUT_TOUCHSCREEN
-	void msm8960_ts_init(int bus);
-#endif
-
 #ifndef MSM8930_PHASE_2
 #include <linux/mfd/pm8xxx/pm8921.h>
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
@@ -136,7 +132,6 @@ void msm8930_init_cam(void);
 void msm8930_init_fb(void);
 void msm8930_init_pmic(void);
 extern void msm8930_add_vidc_device(void);
-unsigned char msm8930_mhl_display_enabled(void);
 
 /*
  * TODO: When physical 8930/PM8038 hardware becomes
@@ -153,9 +148,9 @@ int msm8930_init_gpiomux(void);
 void msm8930_allocate_fb_region(void);
 void msm8930_pm8038_gpio_mpp_init(void);
 void msm8930_pm8917_gpio_mpp_init(void);
-void msm8930_set_display_params(char *prim_panel, char *ext_panel);
 void msm8930_mdp_writeback(struct memtype_reserve *reserve_table);
 void __init msm8930_init_gpu(void);
+void __init configure_8930_sglte_regulator(void);
 
 #define PLATFORM_IS_CHARM25() \
 	(machine_is_msm8930_cdp() && \
@@ -164,13 +159,10 @@ void __init msm8930_init_gpu(void);
 
 #define MSM_8930_GSBI3_QUP_I2C_BUS_ID 3
 #define MSM_8930_GSBI4_QUP_I2C_BUS_ID 4
+#define MSM_8930_GSBI8_QUP_I2C_BUS_ID 8
 #define MSM_8930_GSBI9_QUP_I2C_BUS_ID 0
 #define MSM_8930_GSBI10_QUP_I2C_BUS_ID 10
 #define MSM_8930_GSBI12_QUP_I2C_BUS_ID 12
-
-#ifdef CONFIG_MHL_Sii8334
-#define MSM_8930_GSBI5_QUP_I2C_BUS_ID 5
-#endif
 
 extern struct msm_rtb_platform_data msm8930_rtb_pdata;
 extern struct msm_cache_dump_platform_data msm8930_cache_dump_pdata;

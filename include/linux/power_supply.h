@@ -140,7 +140,6 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_DCP,	/* Dedicated Charging Port */
 	POWER_SUPPLY_TYPE_USB_CDP,	/* Charging Downstream Port */
 	POWER_SUPPLY_TYPE_USB_ACA,	/* Accessory Charger Adapters */
-	POWER_SUPPLY_TYPE_BMS,		/* Battery Monitor System */
 };
 
 union power_supply_propval {
@@ -213,8 +212,7 @@ struct power_supply_info {
 
 #if defined(CONFIG_POWER_SUPPLY) || defined(CONFIG_POWER_SUPPLY_MODULE)
 extern struct power_supply *power_supply_get_by_name(char *name);
-extern void power_supply_changed_ori(struct power_supply *psy,const char* func,int line);
-#define power_supply_changed(psy)	power_supply_changed_ori(psy,__func__, __LINE__)
+extern void power_supply_changed(struct power_supply *psy);
 extern int power_supply_am_i_supplied(struct power_supply *psy);
 extern int power_supply_set_battery_charged(struct power_supply *psy);
 extern int power_supply_set_current_limit(struct power_supply *psy, int limit);

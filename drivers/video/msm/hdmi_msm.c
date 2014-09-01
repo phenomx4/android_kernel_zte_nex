@@ -77,7 +77,6 @@ static int msm_hdmi_sample_rate = MSM_HDMI_SAMPLE_RATE_48KHZ;
 struct workqueue_struct *hdmi_work_queue;
 struct hdmi_msm_state_type *hdmi_msm_state;
 
-static bool hdmi_msm_cable_connected(void);
 /* Enable HDCP by default */
 static bool hdcp_feature_on = true;
 
@@ -2306,6 +2305,7 @@ static int hdcp_authentication_part1(void)
 {
 	int ret = 0;
 	boolean is_match;
+	bool stale_an = false;
 	boolean is_part1_done = FALSE;
 	uint32 timeout_count;
 	uint8 bcaps;
@@ -2361,6 +2361,13 @@ static int hdcp_authentication_part1(void)
 		 * before enabling HDCP. */
 		HDMI_OUTP(0x0288, qfprom_aksv_0);
 		HDMI_OUTP(0x0284, qfprom_aksv_1);
+
+		/* Check for link0_Status stale values for An ready bit */
+		if (HDMI_INP_ND(0x011C) & (BIT(8) | BIT(9))) {
+			DEV_WARN("%s: An ready even before enabling HDCP\n",
+				__func__);
+			stale_an = true;
+		}
 
 		msm_hdmi_init_ddc();
 
@@ -2429,16 +2436,48 @@ static int hdcp_authentication_part1(void)
 		/* enable all HDCP ints */
 		HDMI_OUTP(0x0118, (1 << 2) | (1 << 6) | (1 << 7));
 
+		/* Wait for HDCP keys to be checked and validated */
+		timeout_count = 100;
+		while ((((HDMI_INP(0x011C) >> 28) & 0x7) != 0x3) &&
+			timeout_count) {
+			DEV_DBG("%s: Keys not ready(%d)\n", __func__,
+				timeout_count);
+			timeout_count--;
+			msleep(20);
+		}
+
+		if (!timeout_count) {
+			DEV_ERR("%s: KEYS NOT READY\n", __func__);
+			/* three bits 28..30 */
+			hdcp_key_state((HDMI_INP(0x011C) >> 28) & 0x7);
+			goto error;
+		}
+
+		mutex_lock(&hdcp_auth_state_mutex);
+
+		/* 0x0168 HDCP_RCVPORT_DATA12
+		   [23:8] BSTATUS
+		   [7:0] BCAPS */
+		HDMI_OUTP(0x0168, bcaps);
+
+		/* Check for link0_Status stale values for An ready bit */
+		if (!(HDMI_INP_ND(0x011C) & (BIT(8) | BIT(9)))) {
+			DEV_DBG("%s: An not ready after enabling HDCP\n",
+				__func__);
+			stale_an = false;
+		}
+
 		/* 0x011C HDCP_LINK0_STATUS
 		[8] AN_0_READY
 		[9] AN_1_READY */
 		/* wait for an0 and an1 ready bits to be set in LINK0_STATUS */
-
-		mutex_lock(&hdcp_auth_state_mutex);
 		timeout_count = 100;
 		while (((HDMI_INP_ND(0x011C) & (0x3 << 8)) != (0x3 << 8))
-			&& timeout_count--)
+			&& timeout_count) {
 			msleep(20);
+			timeout_count--;
+		}
+
 		if (!timeout_count) {
 			ret = -ETIMEDOUT;
 			DEV_ERR("%s(%d): timedout, An0=%d, An1=%d\n",
@@ -2449,10 +2488,15 @@ static int hdcp_authentication_part1(void)
 			goto error;
 		}
 
-		/* 0x0168 HDCP_RCVPORT_DATA12
-		   [23:8] BSTATUS
-		   [7:0] BCAPS */
-		HDMI_OUTP(0x0168, bcaps);
+		/*
+		 * In cases where An_ready bits had stale values, it would be
+		 * better to delay reading of An to avoid any potential of this
+		 * read being blocked
+		 */
+		if (stale_an) {
+			msleep(200);
+			stale_an = false;
+		}
 
 		/* 0x014C HDCP_RCVPORT_DATA5
 		   [31:0] LINK0_AN_0 */
@@ -2464,9 +2508,6 @@ static int hdcp_authentication_part1(void)
 		/* read an1 calculation */
 		link0_an_1 = HDMI_INP(0x0150);
 		mutex_unlock(&hdcp_auth_state_mutex);
-
-		/* three bits 28..30 */
-		hdcp_key_state((HDMI_INP(0x011C) >> 28) & 0x7);
 
 		/* 0x0144 HDCP_RCVPORT_DATA3
 		[31:0] LINK0_AKSV_0 public key
@@ -2578,7 +2619,7 @@ static int hdcp_authentication_part1(void)
 			DEV_ERR("%s(%d): timedout, Link0=<%s>\n", __func__,
 			  __LINE__,
 			  is_match ? "RI_MATCH" : "No RI Match INTR in time");
-			if (!is_match || !hdmi_msm_cable_connected())
+			if (!is_match)
 				goto error;
 		}
 
@@ -2733,10 +2774,6 @@ static int hdcp_authentication_part2(void)
 			    __LINE__);
 			goto error;
 		}
-		if (unlikely(!hdmi_msm_cable_connected())) {
-			DEV_ERR("%s: (%d): hpd is low\n", __func__, __LINE__);
-			goto error;
-		}
 		msleep(100);
 	} while ((0 == (bcaps & 0x20)) && timeout_count); /* READY (Bit 5) */
 	if (!timeout_count) {
@@ -2862,17 +2899,11 @@ static int hdcp_authentication_part2(void)
 					"complete. HDCP_SHA_STATUS=%08x. "
 					"timeout_count=%d\n",
 					 HDMI_INP_ND(0x0240), timeout_count);
-				if (unlikely(!hdmi_msm_cable_connected())) {
-					DEV_ERR("%s: (%d): hpd is low\n",
-							__func__, __LINE__);
-					goto error;
-				}
 				msleep(20);
 			}
 			if (!timeout_count) {
 				ret = -ETIMEDOUT;
-				DEV_ERR("%s: (%d): timedout\n",
-						__func__, __LINE__);
+				DEV_ERR("%s(%d): timedout", __func__, __LINE__);
 				goto error;
 			}
 		}
@@ -2886,15 +2917,8 @@ static int hdcp_authentication_part2(void)
 	[4] COMP_DONE */
 	/* Now wait for HDCP_SHA_COMP_DONE */
 	timeout_count = 100;
-	while ((0x10 != (HDMI_INP_ND(0x0240) & 0xFFFFFF10)) &&
-			--timeout_count) {
-		if (unlikely(!hdmi_msm_cable_connected())) {
-			DEV_ERR("%s: (%d): hpd is low\n",
-					__func__, __LINE__);
-			goto error;
-		}
+	while ((0x10 != (HDMI_INP_ND(0x0240) & 0xFFFFFF10)) && --timeout_count)
 		msleep(20);
-	}
 
 	if (!timeout_count) {
 		ret = -ETIMEDOUT;
@@ -2907,10 +2931,6 @@ static int hdcp_authentication_part2(void)
 	timeout_count = 100;
 	while (((HDMI_INP_ND(0x011C) & (1 << 20)) != (1 << 20))
 	    && --timeout_count) {
-		if (unlikely(!hdmi_msm_cable_connected())) {
-			DEV_ERR("%s(%d): hpd is low !", __func__, __LINE__);
-			goto error;
-		}
 		msleep(20);
 	}
 
@@ -4485,8 +4505,14 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	if (!hdmi_ready()) {
-		DEV_ERR("%s: HDMI/HPD not initialized\n", __func__);
+	/*
+	don't check for hpd_initialized here since user space may
+	turn off HPD via hdmi_msm_hpd_feature() before power off is
+	called which leads to HDCP HW lockup on the next power on.
+	*/
+	if (!(MSM_HDMI_BASE && hdmi_msm_state &&
+			hdmi_msm_state->hdmi_app_clk)) {
+		DEV_ERR("%s: HDMI not initialized\n", __func__);
 		return ret;
 	}
 
@@ -4630,21 +4656,21 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 	hdmi_msm_state->hdmi_app_clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(hdmi_msm_state->hdmi_app_clk)) {
 		DEV_ERR("'core_clk' clk not found\n");
-		rc = IS_ERR(hdmi_msm_state->hdmi_app_clk);
+		rc = PTR_ERR(hdmi_msm_state->hdmi_app_clk);
 		goto error;
 	}
 
 	hdmi_msm_state->hdmi_m_pclk = clk_get(&pdev->dev, "master_iface_clk");
 	if (IS_ERR(hdmi_msm_state->hdmi_m_pclk)) {
 		DEV_ERR("'master_iface_clk' clk not found\n");
-		rc = IS_ERR(hdmi_msm_state->hdmi_m_pclk);
+		rc = PTR_ERR(hdmi_msm_state->hdmi_m_pclk);
 		goto error;
 	}
 
 	hdmi_msm_state->hdmi_s_pclk = clk_get(&pdev->dev, "slave_iface_clk");
 	if (IS_ERR(hdmi_msm_state->hdmi_s_pclk)) {
 		DEV_ERR("'slave_iface_clk' clk not found\n");
-		rc = IS_ERR(hdmi_msm_state->hdmi_s_pclk);
+		rc = PTR_ERR(hdmi_msm_state->hdmi_s_pclk);
 		goto error;
 	}
 
@@ -4808,13 +4834,6 @@ static int hdmi_msm_hpd_feature(int on)
 		rc = hdmi_msm_hpd_on();
 	} else {
 		if (external_common_state->hpd_state) {
-			if (hdmi_msm_state->hdcp_enable) {
-				if (!completion_done(
-				    &hdmi_msm_state->hdcp_success_done))
-					complete_all(
-					  &hdmi_msm_state->hdcp_success_done);
-			}
-
 			/* Send offline event to switch OFF HDMI and HAL FD */
 			hdmi_msm_send_event(HPD_EVENT_OFFLINE);
 

@@ -47,12 +47,6 @@
 #include "smd_private.h"
 #include "modem_notifier.h"
 
-//ZTE_RIL_RJG_20120630 begin
-#ifdef CONFIG_ZTE_SDLOG
-extern int sdlog_flag;
-#endif
-//ZTE_RIL_RJG_20120630 end
-
 #if defined(CONFIG_ARCH_QSD8X50) || defined(CONFIG_ARCH_MSM8X60) \
 	|| defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_FSM9XXX) \
 	|| defined(CONFIG_ARCH_MSM9615)	|| defined(CONFIG_ARCH_APQ8064)
@@ -1288,7 +1282,6 @@ static void handle_smd_irq_closing_list(void)
 	spin_unlock_irqrestore(&smd_lock, flags);
 }
 
-extern int zte_smd_wakeup;		//zte jiangfeng
 static void handle_smd_irq(struct list_head *list, void (*notify)(void))
 {
 	unsigned long flags;
@@ -1328,26 +1321,14 @@ static void handle_smd_irq(struct list_head *list, void (*notify)(void))
 					ch->n, ch->name,
 					ch->read_avail(ch),
 					ch->fifo_size - ch->write_avail(ch));
-			//zte jiangfeng add
-			if(zte_smd_wakeup)
-				printk("SMD ch %d '%s' Data event\n",
-					ch->n, ch->name);
-
-			//zte jiangfeng add, end
 			ch->notify(ch->priv, SMD_EVENT_DATA);
 		}
 		if (ch_flags & 0x4 && !state_change) {
 			SMx_POWER_INFO("SMD ch%d '%s' State update\n",
 					ch->n, ch->name);
-			//zte jiangfeng add
-			if(zte_smd_wakeup)
-				printk("SMD ch %d '%s' State update\n",
-					ch->n, ch->name);
-			//zte jiangfeng add, end
 			ch->notify(ch->priv, SMD_EVENT_STATUS);
 		}
 	}
-	zte_smd_wakeup	=	0;		//zte jiangfeng
 	spin_unlock_irqrestore(&smd_lock, flags);
 	do_smd_probe();
 }
@@ -2521,55 +2502,6 @@ static int smsm_cb_init(void)
 	return ret;
 }
 
-/*
- * Support for FTM & RECOVERY mode by ZTE_BOOT_JIA_20120529, jia.jia
- * ZTE_PLATFORM
- */
-#ifdef ZTE_BOOT_MODE
-static void smem_zte_set_nv_bootmode(int bootmode)
-{
-    int *smem_bootmode = NULL;
-
-    smem_bootmode = (int *)smem_alloc2(SMEM_ID_VENDOR0, sizeof(int));
-
-    if (!smem_bootmode)
-    {
-        pr_err("%s: alloc smem failed!\n", __func__);
-        return;
-    }
-
-    /*
-      * 0: Normal mode
-      * 1: FTM mode
-      */
-    *smem_bootmode = bootmode;
-
-    pr_info("%s: set ftm flag to smem.\n", __func__);
-}
-#endif
-
-//ZTE_RIL_RJG_20120630 begin
-
-#ifdef CONFIG_ZTE_SDLOG
-
-static void smem_set_sdlog_flag(int flag)
-{
-    int * zte_sharemem_ptr = NULL;
-    
-    //set sdlog flag in share memory to notify Q6
-    zte_sharemem_ptr = (int *)smem_alloc2(SMEM_ID_VENDOR1, sizeof(int));
-    if (!zte_sharemem_ptr)
-    {
-        pr_info("sdlog alloc smem error\n");
-        return;
-    }
-
-    *zte_sharemem_ptr = flag;
-}
-
-#endif
-//ZTE_RIL_RJG_20120630 end
-
 static int smsm_init(void)
 {
 	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
@@ -2632,31 +2564,6 @@ static int smsm_init(void)
 	i = smsm_cb_init();
 	if (i)
 		return i;
-
-/*
- * Support for FTM & RECOVERY mode by ZTE_BOOT_JIA_20120529, jia.jia
- * ZTE_PLATFORM
- *
- * 0: Normal mode
- * 1: FTM mode
- */
-/*ZTE_BOOT_20130117 huang.yanjun fix bug---->*/ 
-#ifdef ZTE_BOOT_MODE
-    if (socinfo_get_ftm_flag() == 0)
-    {
-        smem_zte_set_nv_bootmode(MAGIC_NUM_NON_FTM_MODE);
-    }
-    else
-    {
-        smem_zte_set_nv_bootmode(MAGIC_NUM_FTM_MODE); 	
-    }
-#endif
-/*ZTE_BOOT_20130117 huang.yanjun fix bug <----*/ 
-    //ZTE_RIL_RJG_20120630 begin
-#ifdef CONFIG_ZTE_SDLOG
-    smem_set_sdlog_flag(sdlog_flag);
-#endif
-    //ZTE_RIL_RJG_20120630 end
 
 	wmb();
 
@@ -3284,6 +3191,7 @@ int smd_core_init(void)
 			flags, "smd_dev", 0);
 	if (r < 0)
 		return r;
+	interrupt_stats[SMD_MODEM].smd_interrupt_id = INT_A9_M2A_0;
 	r = enable_irq_wake(INT_A9_M2A_0);
 	if (r < 0)
 		pr_err("smd_core_init: "
@@ -3295,6 +3203,7 @@ int smd_core_init(void)
 		free_irq(INT_A9_M2A_0, 0);
 		return r;
 	}
+	interrupt_stats[SMD_MODEM].smsm_interrupt_id = INT_A9_M2A_5;
 	r = enable_irq_wake(INT_A9_M2A_5);
 	if (r < 0)
 		pr_err("smd_core_init: "
@@ -3312,6 +3221,7 @@ int smd_core_init(void)
 		return r;
 	}
 
+	interrupt_stats[SMD_Q6].smd_interrupt_id = INT_ADSP_A11;
 	r = request_irq(INT_ADSP_A11_SMSM, smsm_dsp_irq_handler,
 			flags, "smsm_dev", smsm_dsp_irq_handler);
 	if (r < 0) {
@@ -3321,6 +3231,7 @@ int smd_core_init(void)
 		return r;
 	}
 
+	interrupt_stats[SMD_Q6].smsm_interrupt_id = INT_ADSP_A11_SMSM;
 	r = enable_irq_wake(INT_ADSP_A11);
 	if (r < 0)
 		pr_err("smd_core_init: "
@@ -3346,6 +3257,7 @@ int smd_core_init(void)
 		return r;
 	}
 
+	interrupt_stats[SMD_DSPS].smd_interrupt_id = INT_DSPS_A11;
 	r = enable_irq_wake(INT_DSPS_A11);
 	if (r < 0)
 		pr_err("smd_core_init: "
@@ -3364,6 +3276,7 @@ int smd_core_init(void)
 		return r;
 	}
 
+	interrupt_stats[SMD_WCNSS].smd_interrupt_id = INT_WCNSS_A11;
 	r = enable_irq_wake(INT_WCNSS_A11);
 	if (r < 0)
 		pr_err("smd_core_init: "
@@ -3381,6 +3294,7 @@ int smd_core_init(void)
 		return r;
 	}
 
+	interrupt_stats[SMD_WCNSS].smsm_interrupt_id = INT_WCNSS_A11_SMSM;
 	r = enable_irq_wake(INT_WCNSS_A11_SMSM);
 	if (r < 0)
 		pr_err("smd_core_init: "
@@ -3401,6 +3315,7 @@ int smd_core_init(void)
 		return r;
 	}
 
+	interrupt_stats[SMD_DSPS].smsm_interrupt_id = INT_DSPS_A11_SMSM;
 	r = enable_irq_wake(INT_DSPS_A11_SMSM);
 	if (r < 0)
 		pr_err("smd_core_init: "
@@ -3530,6 +3445,8 @@ int smd_core_platform_init(struct platform_device *pdev)
 			goto intr_failed;
 		}
 
+		interrupt_stats[cfg->irq_config_id].smd_interrupt_id
+						 = cfg->smd_int.irq_id;
 		/* only init smsm structs if this edge supports smsm */
 		if (cfg->smsm_int.irq_id)
 			ret = intr_init(
@@ -3545,6 +3462,9 @@ int smd_core_platform_init(struct platform_device *pdev)
 			goto intr_failed;
 		}
 
+		if (cfg->smsm_int.irq_id)
+			interrupt_stats[cfg->irq_config_id].smsm_interrupt_id
+						 = cfg->smsm_int.irq_id;
 		if (cfg->subsys_name)
 			strlcpy(edge_to_pids[cfg->edge].subsys_name,
 				cfg->subsys_name, SMD_MAX_CH_NAME_LEN);
@@ -3642,6 +3562,11 @@ static int restart_notifier_cb(struct notifier_block *this,
 				  unsigned long code,
 				  void *data)
 {
+	/*
+	 * Some SMD or SMSM clients assume SMD/SMSM SSR handling will be
+	 * done in the AFTER_SHUTDOWN level.  If this ever changes, extra
+	 * care should be taken to verify no clients are broken.
+	 */
 	if (code == SUBSYS_AFTER_SHUTDOWN) {
 		struct restart_notifier_block *notifier;
 

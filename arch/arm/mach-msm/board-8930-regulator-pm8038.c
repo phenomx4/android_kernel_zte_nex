@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,7 @@ VREG_CONSUMERS(L9) = {
 	REGULATOR_SUPPLY("8038_l9",		NULL),
 	REGULATOR_SUPPLY("vdd_ana",		"3-004a"),
 	REGULATOR_SUPPLY("vdd",			"3-0024"),
+	REGULATOR_SUPPLY("vdd",			"3-0020"),
 	REGULATOR_SUPPLY("cam_vana",		"4-001a"),
 	REGULATOR_SUPPLY("cam_vana",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vana",		"4-0048"),
@@ -76,8 +77,22 @@ VREG_CONSUMERS(L9) = {
 	REGULATOR_SUPPLY("cam_vaf",		"4-0048"),
 	REGULATOR_SUPPLY("cam_vana",            "4-0020"),
 	REGULATOR_SUPPLY("cam_vaf",             "4-0020"),
+/* Regulators for 8930 QRD SGLTE EVT */
+	REGULATOR_SUPPLY("cam_vana",		"8-001a"),
+	REGULATOR_SUPPLY("cam_vana",		"8-006c"),
+	REGULATOR_SUPPLY("cam_vana",		"8-0048"),
+	REGULATOR_SUPPLY("cam_vana",		"8-0020"),
+	REGULATOR_SUPPLY("cam_vana",		"8-0036"),
+	REGULATOR_SUPPLY("cam_vana",		"8-0010"),
+	REGULATOR_SUPPLY("cam_vaf",		"8-001a"),
+	REGULATOR_SUPPLY("cam_vaf",		"8-006c"),
+	REGULATOR_SUPPLY("cam_vaf",		"8-0048"),
+	REGULATOR_SUPPLY("cam_vaf",		"8-0020"),
+	REGULATOR_SUPPLY("cam_vaf",		"8-0036"),
+	REGULATOR_SUPPLY("cam_vaf",		"8-0010"),
 	REGULATOR_SUPPLY("vdd",			"12-0018"),
 	REGULATOR_SUPPLY("vdd",			"12-0068"),
+	REGULATOR_SUPPLY("CDC_VDDA_A_L9_2P85V",	"sitar1p1-slim"),
 };
 VREG_CONSUMERS(L10) = {
 	REGULATOR_SUPPLY("8038_l10",		NULL),
@@ -95,21 +110,22 @@ VREG_CONSUMERS(L11) = {
 	REGULATOR_SUPPLY("VDDIO_CDC",		"sitar1p1-slim"),
 	REGULATOR_SUPPLY("CDC_VDDA_TX",		"sitar1p1-slim"),
 	REGULATOR_SUPPLY("CDC_VDDA_RX",		"sitar1p1-slim"),
-	REGULATOR_SUPPLY("vddp",		"0-0048"),
+	REGULATOR_SUPPLY("vcc_i2c",		"0-0048"),
 	REGULATOR_SUPPLY("mhl_iovcc18",		"0-0039"),
-	REGULATOR_SUPPLY("cam_vdig",		 "4-0036"),//add by wt ov8825
-	REGULATOR_SUPPLY("cam_vdig",		 "4-003c"),//add by yanwei for ov5640
-	REGULATOR_SUPPLY("cam_vdig",		 "4-0010"),//add by yanwei for ov9740	
-	REGULATOR_SUPPLY("cam_vdig",		 "4-005a"),//add by sx for hi542
-	REGULATOR_SUPPLY("cam_vdig",		 "4-003d"),//add by yanwei for sp0a28
-	REGULATOR_SUPPLY("cam_vdig",		 "4-0064"),//add by sx for ar0542	
 };
 VREG_CONSUMERS(L12) = {
 	REGULATOR_SUPPLY("8038_l12",		NULL),
 	REGULATOR_SUPPLY("cam_vdig",		"4-001a"),
 	REGULATOR_SUPPLY("cam_vdig",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vdig",		"4-0048"),
-	REGULATOR_SUPPLY("cam_vdig",            "4-0020"),
+	REGULATOR_SUPPLY("cam_vdig",		"4-0020"),
+/* Regulators for 8930 QRD SGLTE EVT */
+	REGULATOR_SUPPLY("cam_vdig",		"8-001a"),
+	REGULATOR_SUPPLY("cam_vdig",		"8-006c"),
+	REGULATOR_SUPPLY("cam_vdig",		"8-0048"),
+	REGULATOR_SUPPLY("cam_vdig",		"8-0020"),
+	REGULATOR_SUPPLY("cam_vdig",		"8-0036"),
+	REGULATOR_SUPPLY("cam_vdig",		"8-0010"),
 };
 VREG_CONSUMERS(L13) = {
 	REGULATOR_SUPPLY("8038_l13",		NULL),
@@ -194,25 +210,34 @@ VREG_CONSUMERS(S5) = {
 	REGULATOR_SUPPLY("krait0",		"acpuclk-8627"),
 	REGULATOR_SUPPLY("krait0",		"acpuclk-8930"),
 	REGULATOR_SUPPLY("krait0",		"acpuclk-8930aa"),
+	REGULATOR_SUPPLY("krait0",		"acpuclk-8930ab"),
 };
 VREG_CONSUMERS(S6) = {
 	REGULATOR_SUPPLY("8038_s6",		NULL),
 	REGULATOR_SUPPLY("krait1",		"acpuclk-8627"),
 	REGULATOR_SUPPLY("krait1",		"acpuclk-8930"),
 	REGULATOR_SUPPLY("krait1",		"acpuclk-8930aa"),
+	REGULATOR_SUPPLY("krait1",		"acpuclk-8930ab"),
 };
 VREG_CONSUMERS(LVS1) = {
 	REGULATOR_SUPPLY("8038_lvs1",		NULL),
 	REGULATOR_SUPPLY("cam_vio",		"4-001a"),
 	REGULATOR_SUPPLY("cam_vio",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vio",		"4-0048"),
-	REGULATOR_SUPPLY("cam_vio",             "4-0020"),
+	REGULATOR_SUPPLY("cam_vio",		"4-0020"),
+/* Regulators for 8930 QRD SGLTE EVT */
+	REGULATOR_SUPPLY("cam_vio",		"8-001a"),
+	REGULATOR_SUPPLY("cam_vio",		"8-006c"),
+	REGULATOR_SUPPLY("cam_vio",		"8-0048"),
+	REGULATOR_SUPPLY("cam_vio",		"8-0020"),
+	REGULATOR_SUPPLY("cam_vio",		"8-0036"),
+	REGULATOR_SUPPLY("cam_vio",		"8-0010"),
 };
 VREG_CONSUMERS(LVS2) = {
 	REGULATOR_SUPPLY("8038_lvs2",		NULL),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-004a"),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-0024"),
-	REGULATOR_SUPPLY("vcc_i2c",		"0-0048"),
+	REGULATOR_SUPPLY("vcc_i2c",		"3-0020"),
 	REGULATOR_SUPPLY("vddio",		"12-0018"),
 	REGULATOR_SUPPLY("vlogic",		"12-0068"),
 };
@@ -507,10 +532,10 @@ msm8930_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L6,	 0, 1, 0, 2950000, 2950000, NULL,      0, 0),
 	RPM_LDO(L7,	 0, 1, 0, 2050000, 2050000, "8038_s4", 0, 0),
 	RPM_LDO(L8,	 0, 1, 0, 2800000, 2800000, NULL,      0, 0),
-	RPM_LDO(L9,	 1, 1, 0, 3000000, 3000000, NULL,      0, 0),
+	RPM_LDO(L9,	 0, 1, 0, 2850000, 2850000, NULL,      0, 0),
 	RPM_LDO(L10,	 0, 1, 0, 2900000, 2900000, NULL,      0, 0),
 	RPM_LDO(L11,	 1, 1, 0, 1800000, 1800000, "8038_s4", 10000, 10000),
-	RPM_LDO(L12,	 0, 1, 0, 1200000, 1200000, "8038_s2", 0, 0),
+	RPM_LDO(L12,	 0, 1, 0, 1200000, 1500000, "8038_s2", 0, 0),
 	RPM_LDO(L13,	 0, 0, 0, 2220000, 2220000, NULL,      0, 0),
 	RPM_LDO(L14,	 0, 1, 0, 1800000, 1800000, NULL,      0, 0),
 	RPM_LDO(L15,	 0, 1, 0, 1800000, 2950000, NULL,      0, 0),
@@ -526,7 +551,7 @@ msm8930_rpm_regulator_init_data[] __devinitdata = {
 
 	/*	ID     a_on pd ss		    supply */
 	RPM_VS(LVS1,	 0, 1, 0,		    "8038_l11"),
-	RPM_VS(LVS2,	 1, 1, 0,		    "8038_l11"),
+	RPM_VS(LVS2,	 0, 1, 0,		    "8038_l11"),
 
 	/*	   ID            a_on ss min_corner  max_corner  supply */
 	RPM_CORNER(VDD_DIG_CORNER, 0, 1, RPM_VREG_CORNER_NONE,
@@ -569,6 +594,14 @@ static struct rpm_regulator_consumer_mapping
 	RPM_REG_MAP(L24,            0, 2, "krait1_mem",   "acpuclk-8930aa"),
 	RPM_REG_MAP(VDD_DIG_CORNER, 0, 1, "krait0_dig",   "acpuclk-8930aa"),
 	RPM_REG_MAP(VDD_DIG_CORNER, 0, 2, "krait1_dig",   "acpuclk-8930aa"),
+
+	RPM_REG_MAP(L23,            0, 1, "krait0_hfpll", "acpuclk-8930ab"),
+	RPM_REG_MAP(L23,            0, 2, "krait1_hfpll", "acpuclk-8930ab"),
+	RPM_REG_MAP(L23,            0, 6, "l2_hfpll",     "acpuclk-8930ab"),
+	RPM_REG_MAP(L24,            0, 1, "krait0_mem",   "acpuclk-8930ab"),
+	RPM_REG_MAP(L24,            0, 2, "krait1_mem",   "acpuclk-8930ab"),
+	RPM_REG_MAP(VDD_DIG_CORNER, 0, 1, "krait0_dig",   "acpuclk-8930ab"),
+	RPM_REG_MAP(VDD_DIG_CORNER, 0, 2, "krait1_dig",   "acpuclk-8930ab"),
 };
 
 struct rpm_regulator_platform_data
@@ -581,3 +614,19 @@ msm8930_pm8038_rpm_regulator_pdata __devinitdata = {
 	.consumer_map		= msm_rpm_regulator_consumer_mapping,
 	.consumer_map_len = ARRAY_SIZE(msm_rpm_regulator_consumer_mapping),
 };
+
+void __init configure_8930_sglte_regulator(void)
+{
+	int i;
+	struct rpm_regulator_init_data *rpm_data;
+
+	for (i = 0; i < ARRAY_SIZE(msm8930_rpm_regulator_init_data); i++) {
+		rpm_data = &msm8930_rpm_regulator_init_data[i];
+		if (rpm_data->id == RPM_VREG_ID_PM8038_L17) {
+			rpm_data->init_data.constraints.always_on = 1;
+			rpm_data->system_uA = 10000;
+			rpm_data->peak_uA = 10000;
+			break;
+		}
+	}
+}

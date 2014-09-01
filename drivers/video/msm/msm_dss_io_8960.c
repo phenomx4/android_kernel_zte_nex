@@ -561,7 +561,7 @@ static void mipi_dsi_configure_serdes(void)
 void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info,
 	int target_type)
 {
-	struct mipi_dsi_phy_ctrl *pd = NULL;
+	struct mipi_dsi_phy_ctrl *pd;
 	int i, off;
 
 	MIPI_OUTP(MIPI_DSI_BASE + 0x128, 0x0001);/* start phy sw reset */
@@ -578,24 +578,7 @@ void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info,
 
 	MIPI_OUTP(MIPI_DSI_BASE + 0x4b0, 0x04);/* DSIPHY_LDO_CNTRL */
 
-	//rms
-	for (i = 0; i < (panel_info->mipi).dsi_phy_db_count; i++) {
-		pd = (panel_info->mipi).dsi_phy_db[i];
-		if ((panel_info->mipi).frame_rate == pd->frame) {
-			printk(KERN_ERR"(%s:%d) use frame_rate %d %d",
-			       __FUNCTION__, __LINE__,
-			       i, pd->frame);
-			break;
-		}
-	}
-	if (i >= (panel_info->mipi).dsi_phy_db_count) {
-		pd = (panel_info->mipi).dsi_phy_db[0];
-		printk(KERN_ERR"(%s:%d) cannot support %d %d %d, use default",
-		       __FUNCTION__, __LINE__,
-		       (panel_info->mipi).frame_rate, i, pd->frame);
-	}
-	//end
-	
+	pd = (panel_info->mipi).dsi_phy_db;
 
 	off = 0x0480;	/* strength 0 - 2 */
 	for (i = 0; i < 3; i++) {
@@ -628,10 +611,8 @@ void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info,
 		off += 4;
 	}
 
-	if (panel_info) {
-		printk(KERN_ERR"rms:(%s:%d) clk_rate %u", __FUNCTION__, __LINE__, panel_info->clk_rate);
+	if (panel_info)
 		mipi_dsi_phy_pll_config(panel_info->clk_rate);
-	}
 
 	/* pll ctrl 0 */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x200, pd->pll[0]);

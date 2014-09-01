@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -78,9 +78,7 @@ struct msm_fb_data_type {
 
 	panel_id_type panel;
 	struct msm_panel_info panel_info;
-	//rms
-	__u32 new_frame_rate;
-    //end
+
 	DISP_TARGET dest;
 	struct fb_info *fbi;
 
@@ -156,7 +154,6 @@ struct msm_fb_data_type {
 	__u32 bl_level;
 
 	struct platform_device *pdev;
-	struct platform_device *panel_pdev;
 
 	__u32 var_xres;
 	__u32 var_yres;
@@ -198,21 +195,23 @@ struct msm_fb_data_type {
 	u32 mdp_rev;
 	u32 writeback_state;
 	bool writeback_active_cnt;
+	bool writeback_initialized;
 	int cont_splash_done;
 	void *cpu_pm_hdl;
 	u32 acq_fen_cnt;
 	struct sync_fence *acq_fen[MDP_MAX_FENCE_FD];
+	int cur_rel_fen_fd;
+	struct sync_pt *cur_rel_sync_pt;
+	struct sync_fence *cur_rel_fence;
+	struct sync_fence *last_rel_fence;
 	struct sw_sync_timeline *timeline;
 	int timeline_value;
+	u32 last_acq_fen_cnt;
+	struct sync_fence *last_acq_fen[MDP_MAX_FENCE_FD];
 	struct mutex sync_mutex;
-	struct mutex queue_mutex;
 	struct completion commit_comp;
 	u32 is_committing;
 	struct work_struct commit_work;
-	atomic_t commit_cnt;
-	struct task_struct *commit_thread;
-	wait_queue_head_t commit_queue;
-	int wake_commit_thread;
 	void *msm_fb_backup;
 	boolean panel_driver_on;
 	int vsync_sysfs_created;
@@ -220,55 +219,12 @@ struct msm_fb_data_type {
 	unsigned char *copy_splash_phys;
 	uint32 sec_mapped;
 	uint32 sec_active;
-#if defined(CONFIG_DEBUG_FS) || defined(CONFIG_FB_MSM_RECOVER_PANEL)
-	struct mutex power_lock;
-#endif
-	bool nvrw_prohibit_draw;
 	uint32 max_map_size;
 };
 struct msm_fb_backup_type {
 	struct fb_info info;
 	struct mdp_display_commit disp_commit;
 };
-
-//< 2012/5/18-N9210_add_lcd_factory_mode-lizhiye- < short commond here >
-typedef enum {
-	LCD_PANEL_NOPANEL,
-	LCD_PANEL_4P0_HX8363_CMI_YASSY,
-	LCD_PANEL_4P0_HIMAX8369_LEAD,
-	LCD_PANEL_4P0_HIMAX8369_LEAD_HANNSTAR,
-	LCD_PANEL_4P0_HIMAX8369_TIANMA_TN,
-	LCD_PANEL_4P0_HIMAX8369_TIANMA_IPS,
-	LCD_PANEL_4P0_NT35510_LEAD,
-	LCD_PANEL_4P0_NT35510_HYDIS_YUSHUN,
-	LCD_PANEL_4P0_R61408_TRULY_LG,
-	LCD_PANEL_4P0_HX8363_IVO_YUSHUN,
-	LCD_PANEL_4P0_NT35510_BOE_BOE,
-	LCD_PANEL_4P0_OTM_8009_CMI,	
-	LCD_PANEL_4P0_HX8369B_TM04YVHP12,
-	LCD_PANEL_4P0_NT35512_TM,
-
-	LCD_PANEL_4P5_OTM1280_OT_CMI = 20,
-	LCD_PANEL_4P5_OTM1281_OT_TRULY,
-	LCD_PANEL_4P5_NT35590_AUO_LEAD,
-
-	LCD_PANEL_4P5_BOE_OTM9608A_QHD = 30,
-	LCD_PANEL_4P5_YUSHUN_OTM9608A_QHD,
-	LCD_PANEL_4P5_TIANMA_NT35516_QHD,
-	LCD_PANEL_4P5_LEAD_CMI_OTM9608A_QHD,
-	
-	LCD_PANEL_4P5_TM_HX8369A_FWVGA=40,
-	LCD_PANEL_4P5_BOE_OTM8009A_FWVGA,
-	LCD_PANEL_4P5_TM_HX8379A_FWVGA,
-	LCD_PANEL_4P5_CMI_NT35510B_FWVGA,
-	LCD_PANEL_5P0_HX8394_BOE_BOE=50,
-	LCD_PANEL_5P0_NT35590_CMI_CMI,
-	LCD_PANEL_5P0_NT35590_AUO_YUSHUN,
-	LCD_PANEL_5P0_NT35590_TM_TM,
-	LCD_PANEL_MAX
-} LCD_PANEL_ID;
-//>2012/5/18-N9210_add_lcd_factory_mode-lizhiye
-
 
 struct dentry *msm_fb_get_debugfs_root(void);
 void msm_fb_debugfs_file_create(struct dentry *root, const char *name,
@@ -290,8 +246,6 @@ int calc_fb_offset(struct msm_fb_data_type *mfd, struct fb_info *fbi, int bpp);
 void msm_fb_wait_for_fence(struct msm_fb_data_type *mfd);
 int msm_fb_signal_timeline(struct msm_fb_data_type *mfd);
 void msm_fb_release_timeline(struct msm_fb_data_type *mfd);
-void msm_fb_release_busy(struct msm_fb_data_type *mfd);
-
 #ifdef CONFIG_FB_BACKLIGHT
 void msm_fb_config_backlight(struct msm_fb_data_type *mfd);
 #endif
@@ -301,8 +255,8 @@ int msm_fb_check_frame_rate(struct msm_fb_data_type *mfd,
 				struct fb_info *info);
 
 #ifdef CONFIG_FB_MSM_LOGO
-#define INIT_IMAGE_FILE "/logo.bmp"
-extern int load_565rle_image(char *filename);
+#define INIT_IMAGE_FILE "/initlogo.rle"
+int load_565rle_image(char *filename, bool bf_supported);
 #endif
 
 #endif /* MSM_FB_H */

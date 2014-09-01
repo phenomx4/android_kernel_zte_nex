@@ -95,6 +95,7 @@ enum vfe_resp_msg {
 	VFE_MSG_OUTPUT_SECONDARY,
 	VFE_MSG_OUTPUT_TERTIARY1,
 	VFE_MSG_OUTPUT_TERTIARY2,
+	VFE_MSG_OUTPUT_TERTIARY3,
 };
 
 enum vpe_resp_msg {
@@ -514,17 +515,6 @@ int msm_camera_flash_set_led_state(
 int msm_strobe_flash_init(struct msm_sync *sync, uint32_t sftype);
 int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
 			struct flash_ctrl_data *flash_info);
-#ifdef CONFIG_LM3642
-int lm3642_set_flash_mode(void);
-int lm3642_set_torch_mode1(void);
-int lm3642_set_torch_mode2(void);
-int lm3642_set_flash_and_torch_mode_off(void);
-#endif
-#ifdef CONFIG_ADP1650
-int ADP1650_disable(void);
-int ADP1650_flashmode_enable(void);
-int ADP1650_assistmode_enable(void);
-#endif
 #else
 static inline int msm_camera_flash_set_led_state(
 	struct msm_camera_sensor_flash_data *fdata,
@@ -644,7 +634,7 @@ enum msm_bus_perf_setting {
 	S_DEFAULT,
 	S_LIVESHOT,
 	S_DUAL,
-	S_ADV_VIDEO,
+	S_LOW_POWER,
 	S_EXIT
 };
 

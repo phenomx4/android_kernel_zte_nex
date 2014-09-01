@@ -32,11 +32,6 @@ int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 	int rc = 0;
 	int j = 0;
 	uint32_t val = 0;
-
-#if defined(CONFIG_HI542)
-	uint32_t irq2;
-#endif
-
 	uint8_t lane_cnt = 0;
 	uint16_t lane_mask = 0;
 	void __iomem *csiphybase;
@@ -101,15 +96,6 @@ int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		j++;
 		lane_mask >>= 1;
 	}
-
-#if defined(CONFIG_HI542)
-     irq2 = msm_camera_io_r(csiphybase + MIPI_CSIPHY_LNCK_CFG4_ADDR);
-      pr_err("%s MIPI_CSIPHY_LNCK_CFG4_ADDR = 0x%x\n", __func__, irq2);
-     msm_camera_io_w(0xc, csiphybase + MIPI_CSIPHY_LNCK_CFG4_ADDR);
-     irq2 = msm_camera_io_r(csiphybase + MIPI_CSIPHY_LNCK_CFG4_ADDR);
-     pr_err("%s 11 MIPI_CSIPHY_LNCK_CFG4_ADDR = 0x%x\n", __func__, irq2);
-#endif
-
 	msleep(20);
 	return rc;
 }
@@ -119,7 +105,8 @@ static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 	uint32_t irq;
 	int i;
 	struct csiphy_device *csiphy_dev = data;
-
+	if(!csiphy_dev || !csiphy_dev->base)
+		return IRQ_HANDLED;
 	for (i = 0; i < 8; i++) {
 		irq = msm_camera_io_r(
 			csiphy_dev->base +
@@ -246,7 +233,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		return -EINVAL;
 	}
 
-	pr_err("%s csiphy_params, lane assign %x mask = %x\n",
+	CDBG("%s csiphy_params, lane assign %x mask = %x\n",
 		__func__,
 		csi_lane_params->csi_lane_assign,
 		csi_lane_params->csi_lane_mask);
@@ -444,7 +431,7 @@ static int __devinit csiphy_probe(struct platform_device *pdev)
 csiphy_no_resource:
 	mutex_destroy(&new_csiphy_dev->mutex);
 	kfree(new_csiphy_dev);
-	return 0;
+	return rc;
 }
 
 static const struct of_device_id msm_csiphy_dt_match[] = {

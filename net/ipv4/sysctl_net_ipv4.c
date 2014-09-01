@@ -4,11 +4,6 @@
  * Begun April 1, 1996, Mike Shaver.
  * Added /proc/sys/net/ipv4 directory entry (empty =) ). [MS]
  */
-  /* ======================================================
-when         who        what, where, why                                 comment tag
---------   ----    -------------------------------------    ----------------------------------
-2013-02-05   lichuan   window size ajustment                     ZTE_LC_TCP_WIN
- ======================================================*/
 
 #include <linux/mm.h>
 #include <linux/module.h>
@@ -41,6 +36,10 @@ static int ip_ttl_min = 1;
 static int ip_ttl_max = 255;
 static int ip_ping_group_range_min[] = { 0, 0 };
 static int ip_ping_group_range_max[] = { GID_T_MAX, GID_T_MAX };
+static int tcp_delack_seg_min = TCP_DELACK_MIN;
+static int tcp_delack_seg_max = 60;
+static int tcp_use_userconfig_min;
+static int tcp_use_userconfig_max = 1;
 
 /* Update system visible IP port range */
 static void set_local_port_range(int range[2])
@@ -704,15 +703,25 @@ static struct ctl_table ipv4_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &zero
 	},
-/*ZTE_LC_TCP_WIN, 20130205 start*/
 	{
-		.procname	= "tcp_rwin_init",
-		.data		= &sysctl_socket_rwin_init,
-		.maxlen		= sizeof(sysctl_socket_rwin_init),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
+		.procname       = "tcp_delack_seg",
+		.data           = &sysctl_tcp_delack_seg,
+		.maxlen         = sizeof(sysctl_tcp_delack_seg),
+		.mode           = 0644,
+		.proc_handler   = tcp_proc_delayed_ack_control,
+		.extra1         = &tcp_delack_seg_min,
+		.extra2         = &tcp_delack_seg_max,
 	},
-/*ZTE_LC_TCP_WIN, 20130205 end*/	
+	{
+		.procname       = "tcp_use_userconfig",
+		.data           = &sysctl_tcp_use_userconfig,
+		.maxlen         = sizeof(sysctl_tcp_use_userconfig),
+		.mode           = 0644,
+		.proc_handler   = tcp_use_userconfig_sysctl_handler,
+		.extra1         = &tcp_use_userconfig_min,
+		.extra2         = &tcp_use_userconfig_max,
+	},
+
 	{ }
 };
 

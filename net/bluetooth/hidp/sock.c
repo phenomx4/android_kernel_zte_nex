@@ -61,7 +61,6 @@ static int hidp_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long 
 	struct hidp_conndel_req cd;
 	struct hidp_connlist_req cl;
 	struct hidp_conninfo ci;
-	struct hidp_report hidp_r;		//zte-ccb-20130117
 	struct socket *csock;
 	struct socket *isock;
 	int err;
@@ -135,16 +134,6 @@ static int hidp_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long 
 			return -EFAULT;
 
 		return err;
-		
-	case HIDPSENDDATA:	//zte-ccb-20130117
-
-		if (copy_from_user(&hidp_r, argp, sizeof(hidp_r)))
-			return -EFAULT;
-
-		err = hidp_send_report_cmd(&hidp_r);
-		
-		return err;
-		
 	}
 
 	return -EINVAL;

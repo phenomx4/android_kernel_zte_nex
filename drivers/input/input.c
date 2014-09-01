@@ -27,7 +27,6 @@
 #include <linux/mutex.h>
 #include <linux/rcupdate.h>
 #include "input-compat.h"
-#include <linux/zte_hibernate.h>
 
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
 MODULE_DESCRIPTION("Input core");
@@ -588,26 +587,6 @@ EXPORT_SYMBOL(input_close_device);
  * Simulate keyup events for all keys that are marked as pressed.
  * The function must be called with dev->event_lock held.
  */
-static inline int reset_key(int code)
-{
-	return !(code == KEY_POWER && is_in_hibernate());
-}
-
-static void input_dev_release_keys_hibernate(struct input_dev *dev)
-{
-	int code;
-
-	if (is_event_supported(EV_KEY, dev->evbit, EV_MAX)) {
-		for (code = 0; code <= KEY_MAX; code++) {
-			if (reset_key(code) &&
-			    is_event_supported(code, dev->keybit, KEY_MAX) &&
-			    __test_and_clear_bit(code, dev->key)) {
-				input_pass_event(dev, EV_KEY, code, 0);
-			}
-		}
-		input_pass_event(dev, EV_SYN, SYN_REPORT, 1);
-	}
-}
 static void input_dev_release_keys(struct input_dev *dev)
 {
 	int code;
@@ -1596,7 +1575,7 @@ void input_reset_device(struct input_dev *dev)
 		 * to be still pressed when we resume.
 		 */
 		spin_lock_irq(&dev->event_lock);
-		input_dev_release_keys_hibernate(dev);
+		input_dev_release_keys(dev);
 		spin_unlock_irq(&dev->event_lock);
 	}
 

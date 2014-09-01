@@ -26,11 +26,6 @@
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/regulator.h>
 
-//zte vibrate
-#ifdef	CONFIG_PMIC8XXX_VIBRATOR	/* zte-ccb-20121011 */
-#include <linux/mfd/pm8xxx/vibrator.h>
-#endif
-
 #define REG_HWREV		0x002  /* PMIC4 revision */
 #define REG_HWREV_2		0x0E8  /* PMIC4 revision 2 */
 

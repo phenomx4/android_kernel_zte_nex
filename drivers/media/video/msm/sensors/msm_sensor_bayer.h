@@ -34,20 +34,10 @@ struct sensor_driver_t {
 	struct platform_driver *platform_pdriver;
 	int32_t (*platform_probe)(struct platform_device *pdev);
 };
-#if defined (CONFIG_AR0542)
-int32_t ar0542_msm_sensor_otp_func(struct msm_sensor_ctrl_t *s_ctrl);
-#endif
-#if defined (CONFIG_OV8825)
-int ov8825_msm_sensor_bayer_i2c_probe(struct i2c_client *client,
-	const struct i2c_device_id *id);
-int32_t ov8825_msm_sensor_bayer_power_up(struct msm_sensor_ctrl_t *s_ctrl);
-int32_t ov8825_msm_sensor_bayer_power_down(struct msm_sensor_ctrl_t *s_ctrl);
-int32_t ov8825_msm_sensor_otp_func(struct msm_sensor_ctrl_t *s_ctrl);
-#endif
+
 int32_t msm_sensor_bayer_config(struct msm_sensor_ctrl_t *s_ctrl,
 			void __user *argp);
 int32_t msm_sensor_bayer_power_up(struct msm_sensor_ctrl_t *s_ctrl);
-int32_t msm_sensor_bayer_power_on(struct msm_sensor_ctrl_t *s_ctrl);
 int32_t msm_sensor_bayer_power_down(struct msm_sensor_ctrl_t *s_ctrl);
 
 int32_t msm_sensor_bayer_match_id(struct msm_sensor_ctrl_t *s_ctrl);
@@ -71,11 +61,6 @@ int msm_sensor_bayer_v4l2_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 
 long msm_sensor_bayer_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg);
-
-void msm_sensor_bayer_stream_on(struct msm_sensor_ctrl_t *s_ctrl);
-
-void msm_sensor_bayer_stream_off(struct msm_sensor_ctrl_t *s_ctrl);
-
 
 int32_t msm_sensor_bayer_get_csi_params(struct msm_sensor_ctrl_t *s_ctrl,
 		struct csi_lane_params_t *sensor_output_info);

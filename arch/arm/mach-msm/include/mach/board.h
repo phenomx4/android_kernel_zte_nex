@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/include/mach/board.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -386,9 +386,6 @@ struct msm_panel_common_pdata {
 	void (*panel_config_gpio)(int);
 	int (*vga_switch)(int select_vga);
 	int *gpio_num;
-	int mdp_core_clk_rate;
-	unsigned num_mdp_clk;
-	int *mdp_core_clk_table;
 	u32 mdp_max_clk;
 	u32 mdp_max_bw;
 	u32 mdp_bw_ab_factor;
@@ -453,7 +450,6 @@ struct mipi_dsi_phy_ctrl {
 	uint32_t ctrl[4];
 	uint32_t strength[4];
 	uint32_t pll[21];
-	int frame;
 };
 
 struct mipi_dsi_panel_platform_data {
@@ -487,7 +483,6 @@ struct msm_fb_platform_data {
 
 struct msm_hdmi_platform_data {
 	int irq;
-	const char *coupled_mhl_device;
 	int (*cable_detect)(int insert);
 	int (*comm_power)(int on, int show);
 	int (*enable_5v)(int on);
@@ -598,6 +593,7 @@ void mpq8092_init_gpiomux(void);
 struct mmc_platform_data;
 int msm_add_sdcc(unsigned int controller,
 		struct mmc_platform_data *plat);
+int msm_add_uio(void);
 
 void msm_pm_register_irqs(void);
 struct msm_usb_host_platform_data;

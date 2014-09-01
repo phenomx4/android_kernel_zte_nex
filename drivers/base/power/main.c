@@ -715,12 +715,10 @@ void dpm_resume(pm_message_t state)
 		get_device(dev);
 		if (!is_async(dev)) {
 			int error;
-            unsigned long jif = 0;
+
 			mutex_unlock(&dpm_list_mtx);
-            jif = jiffies;
+
 			error = device_resume(dev, state, false);
-			if ((jiffies - jif) > 1)
-			    printk(KERN_ERR"PM: devices of %s exit  device_resume %lu ms\n",dev_name(dev), (jiffies - jif)*10);
 			if (error) {
 				suspend_stats.failed_resume++;
 				dpm_save_failed_step(SUSPEND_RESUME);
@@ -1011,14 +1009,10 @@ int dpm_suspend_end(pm_message_t state)
 	int error = dpm_suspend_late(state);
 	if (error)
 		return error;
-
 	error = dpm_suspend_noirq(state);
-	if (error) {
-		dpm_resume_early(state);
-		return error;
-	}
-
-	return 0;
+	if (error)
+		dpm_resume_early(resume_event(state));
+	return error;
 }
 EXPORT_SYMBOL_GPL(dpm_suspend_end);
 

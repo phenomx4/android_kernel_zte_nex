@@ -32,12 +32,7 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 	{0x0, 0x49, 0x30, 0xc4, 0x00, 0x20, 0x07, 0x62,
 	0x41, 0x0f, 0x01,
 	0x00, 0x14, 0x03, 0x00, 0x02, 0x00, 0x20, 0x00, 0x01 },
-	55,
 };
-static struct mipi_dsi_phy_ctrl *dsi_video_mode_phy_dbs[] = {
-	&dsi_video_mode_phy_db,
-};
-
 
 static int __init mipi_video_toshiba_wsvga_pt_init(void)
 {
@@ -95,8 +90,7 @@ static int __init mipi_video_toshiba_wsvga_pt_init(void)
 	pinfo.mipi.mdp_trigger = 0;
 	pinfo.mipi.dma_trigger = DSI_CMD_TRIGGER_SW;
 	pinfo.mipi.frame_rate = 55;
-	pinfo.mipi.dsi_phy_db = dsi_video_mode_phy_dbs;
-	pinfo.mipi.dsi_phy_db_count = ARRAY_SIZE(dsi_video_mode_phy_dbs);
+	pinfo.mipi.dsi_phy_db = &dsi_video_mode_phy_db;
 	pinfo.mipi.tx_eot_append = TRUE;
 
 	ret = mipi_toshiba_device_register(&pinfo, MIPI_DSI_PRIM,

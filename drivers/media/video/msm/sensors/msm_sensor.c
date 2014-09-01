@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,9 @@ void msm_sensor_adjust_frame_lines2(struct msm_sensor_ctrl_t *s_ctrl)
 	uint16_t cur_line = 0;
 	uint16_t exp_fl_lines = 0;
 	uint8_t int_time[3];
+	uint32_t fll = (s_ctrl->msm_sensor_reg->
+			output_settings[s_ctrl->curr_res].frame_length_lines *
+			s_ctrl->fps_divider) / Q10;
 	if (s_ctrl->sensor_exp_gain_info) {
 		msm_camera_i2c_read_seq(s_ctrl->sensor_i2c_client,
 			s_ctrl->sensor_exp_gain_info->coarse_int_time_addr-1,
@@ -58,8 +61,7 @@ void msm_sensor_adjust_frame_lines2(struct msm_sensor_ctrl_t *s_ctrl)
 		cur_line |= int_time[2] >> 4;
 		exp_fl_lines = cur_line +
 			s_ctrl->sensor_exp_gain_info->vert_offset;
-		if (exp_fl_lines > s_ctrl->msm_sensor_reg->
-			output_settings[s_ctrl->curr_res].frame_length_lines)
+		if (exp_fl_lines > fll)
 			msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 				s_ctrl->sensor_output_reg_addr->
 				frame_length_lines,
@@ -102,11 +104,12 @@ static void msm_sensor_delay_frames(struct msm_sensor_ctrl_t *s_ctrl)
 
 int32_t msm_sensor_write_init_settings(struct msm_sensor_ctrl_t *s_ctrl)
 {
-	int32_t rc;
-	rc = msm_sensor_write_all_conf_array(
-		s_ctrl->sensor_i2c_client,
-		s_ctrl->msm_sensor_reg->init_settings,
-		s_ctrl->msm_sensor_reg->init_size);
+	int32_t rc = 0;
+	if (s_ctrl->msm_sensor_reg->init_settings)
+		rc = msm_sensor_write_all_conf_array(
+			s_ctrl->sensor_i2c_client,
+			s_ctrl->msm_sensor_reg->init_settings,
+			s_ctrl->msm_sensor_reg->init_size);
 	return rc;
 }
 
@@ -131,6 +134,9 @@ int32_t msm_sensor_write_output_settings(struct msm_sensor_ctrl_t *s_ctrl,
 	uint16_t res)
 {
 	int32_t rc = -EFAULT;
+	uint32_t fll = (s_ctrl->msm_sensor_reg->
+		output_settings[res].frame_length_lines *
+		s_ctrl->fps_divider) / Q10;
 	struct msm_camera_i2c_reg_conf dim_settings[] = {
 		{s_ctrl->sensor_output_reg_addr->x_output,
 			s_ctrl->msm_sensor_reg->
@@ -142,8 +148,7 @@ int32_t msm_sensor_write_output_settings(struct msm_sensor_ctrl_t *s_ctrl,
 			s_ctrl->msm_sensor_reg->
 			output_settings[res].line_length_pclk},
 		{s_ctrl->sensor_output_reg_addr->frame_length_lines,
-			s_ctrl->msm_sensor_reg->
-			output_settings[res].frame_length_lines},
+			fll},
 	};
 
 	rc = msm_camera_i2c_write_tbl(s_ctrl->sensor_i2c_client, dim_settings,
@@ -156,7 +161,8 @@ void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 	if (s_ctrl->curr_res >= s_ctrl->msm_sensor_reg->num_conf)
 		return;
 
-	if (s_ctrl->func_tbl->sensor_adjust_frame_lines)
+	if (s_ctrl->func_tbl->sensor_adjust_frame_lines &&
+			s_ctrl->vision_mode_flag == 0)
 		s_ctrl->func_tbl->sensor_adjust_frame_lines(s_ctrl);
 
 	msm_camera_i2c_write_tbl(
@@ -204,7 +210,7 @@ int32_t msm_sensor_set_fps(struct msm_sensor_ctrl_t *s_ctrl,
 }
 
 int32_t msm_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
-		uint16_t gain, uint32_t line)
+		uint16_t gain, uint32_t line, int32_t luma_avg, uint16_t fgain)
 {
 	uint32_t fl_lines;
 	uint8_t offset;
@@ -213,7 +219,6 @@ int32_t msm_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
 	offset = s_ctrl->sensor_exp_gain_info->vert_offset;
 	if (line > (fl_lines - offset))
 		fl_lines = line + offset;
-	fl_lines += (fl_lines & 0x01);
 
 	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
@@ -230,7 +235,7 @@ int32_t msm_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
 }
 
 int32_t msm_sensor_write_exp_gain2(struct msm_sensor_ctrl_t *s_ctrl,
-		uint16_t gain, uint32_t line)
+		uint16_t gain, uint32_t line, int32_t luma_avg, uint16_t fgain)
 {
 	uint32_t fl_lines, ll_pclk, ll_ratio;
 	uint8_t offset;
@@ -284,7 +289,6 @@ int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res)
 {
 	int32_t rc = 0;
-
 	if (update_type == MSM_SENSOR_REG_INIT) {
 		s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
 		msm_sensor_write_init_settings(s_ctrl);
@@ -301,8 +305,6 @@ int32_t msm_sensor_set_sensor_mode(struct msm_sensor_ctrl_t *s_ctrl,
 	int mode, int res)
 {
 	int32_t rc = 0;
-	pr_err("%s: %d\n", __func__, __LINE__);	
-
 	if (s_ctrl->curr_res != res) {
 		s_ctrl->curr_frame_length_lines =
 			s_ctrl->msm_sensor_reg->
@@ -400,7 +402,6 @@ int32_t msm_sensor_get_csi_params(struct msm_sensor_ctrl_t *s_ctrl,
 	uint8_t index;
 	struct msm_camera_csi_lane_params *csi_lane_params =
 		s_ctrl->sensordata->sensor_platform_info->csi_lane_params;
-	pr_err("%s\n",__func__);
 	if (csi_lane_params) {
 		sensor_output_info->csi_lane_assign = csi_lane_params->
 			csi_lane_assign;
@@ -425,7 +426,7 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		sizeof(struct sensor_cfg_data)))
 		return -EFAULT;
 	mutex_lock(s_ctrl->msm_sensor_mutex);
-	pr_err("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
+	CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
 		s_ctrl->sensordata->sensor_name, cdata.cfgtype);
 	switch (cdata.cfgtype) {
 		case CFG_SET_FPS:
@@ -442,6 +443,9 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			break;
 
 		case CFG_SET_EXP_GAIN:
+			if(s_ctrl->vision_mode_flag) {
+				break;
+			}
 			if (s_ctrl->func_tbl->
 			sensor_write_exp_gain == NULL) {
 				rc = -EFAULT;
@@ -452,10 +456,15 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 				sensor_write_exp_gain(
 					s_ctrl,
 					cdata.cfg.exp_gain.gain,
-					cdata.cfg.exp_gain.line);
+					cdata.cfg.exp_gain.line,
+					cdata.cfg.exp_gain.luma_avg,
+					cdata.cfg.exp_gain.fgain);
 			break;
 
 		case CFG_SET_PICT_EXP_GAIN:
+			if(s_ctrl->vision_mode_flag) {
+				break;
+			}
 			if (s_ctrl->func_tbl->
 			sensor_write_snapshot_exp_gain == NULL) {
 				rc = -EFAULT;
@@ -466,7 +475,9 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 				sensor_write_snapshot_exp_gain(
 					s_ctrl,
 					cdata.cfg.exp_gain.gain,
-					cdata.cfg.exp_gain.line);
+					cdata.cfg.exp_gain.line,
+					cdata.cfg.exp_gain.luma_avg,
+					cdata.cfg.exp_gain.fgain);
 			break;
 
 		case CFG_SET_MODE:
@@ -483,6 +494,18 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			break;
 
 		case CFG_SET_EFFECT:
+			break;
+
+		case CFG_HDR_UPDATE:
+			if (s_ctrl->func_tbl->
+			sensor_hdr_update == NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->
+					sensor_hdr_update(
+					   s_ctrl,
+					   &(cdata.cfg.hdr_update_parm));
 			break;
 
 		case CFG_SENSOR_INIT:
@@ -514,19 +537,7 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 				sizeof(struct sensor_cfg_data)))
 				rc = -EFAULT;
 			break;
-        //add for af in dark scene lijing 20120521
-		case CFG_GET_FLASH_FLAG:
-			if (s_ctrl->func_tbl->sensor_get_flash_flag == NULL) {
-				rc = -EFAULT;
-				break;
-			}
-			s_ctrl->func_tbl->sensor_get_flash_flag(s_ctrl,&cdata.cfg.flash_flag);
 
-			pr_err("lijing cdata.cfg.flash_flag=%d",cdata.cfg.flash_flag);
-
-			if (copy_to_user((void *)argp,&cdata,sizeof(struct sensor_cfg_data)))
-				rc = -EFAULT;
-			break;
 		case CFG_START_STREAM:
 			if (s_ctrl->func_tbl->sensor_start_stream == NULL) {
 				rc = -EFAULT;
@@ -545,7 +556,6 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 
 		case CFG_GET_CSI_PARAMS:
 			if (s_ctrl->func_tbl->sensor_get_csi_params == NULL) {
-				pr_err("lijing:%s sensor_get_csi_params==null,LINE=%d\n",__func__,__LINE__);
 				rc = -EFAULT;
 				break;
 			}
@@ -574,15 +584,21 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			else
 				rc = -EFAULT;
 			break;
-		/*added by CDZ_CAM_ZTE for AF of yuv sensor*/
-		case CFG_SET_AF:
-					if (s_ctrl->func_tbl->af_trigger == NULL) {
+		case CFG_SET_VISION_MODE:
+			if (s_ctrl->func_tbl->sensor_set_vision_mode)
+				rc = s_ctrl->func_tbl->sensor_set_vision_mode(
+					s_ctrl, cdata.cfg.vision_mode_enable);
+			else
 				rc = -EFAULT;
 				break;
-			}
-			rc = s_ctrl->func_tbl->af_trigger(s_ctrl);
+		case CFG_SET_VISION_AE:
+			if (s_ctrl->func_tbl->sensor_set_vision_ae_control)
+				rc = s_ctrl->func_tbl->
+					sensor_set_vision_ae_control(
+					s_ctrl, cdata.cfg.vision_ae);
+			else
+				rc = -EFAULT;
 			break;
-
 		default:
 			rc = -EFAULT;
 			break;
@@ -1471,7 +1487,6 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	int32_t rc = 0;
 	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
 	struct device *dev = NULL;
-	pr_err("%s  %d \n",__func__,__LINE__);
 	if (s_ctrl->sensor_device_type == MSM_SENSOR_PLATFORM_DEVICE)
 		dev = &s_ctrl->pdev->dev;
 	else
@@ -1483,6 +1498,13 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 			__func__);
 		return -ENOMEM;
 	}
+
+	rc = msm_camera_request_gpio_table(data, 1);
+	if (rc < 0) {
+		pr_err("%s: request gpio failed\n", __func__);
+		goto request_gpio_failed;
+	}
+
 	rc = msm_camera_config_vreg(dev,
 		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
 		s_ctrl->sensordata->sensor_platform_info->num_vreg,
@@ -1504,45 +1526,13 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		pr_err("%s: enable regulator failed\n", __func__);
 		goto enable_vreg_failed;
 	}
-	//yanwei		
-	gpio_free(15);	
-	rc=gpio_request(15,"ov5640");
-	if (rc < 0)  {
-	pr_err("%s  gpio  requst 15 failed\n",__func__);
-	goto request_gpio_failed;
-	}
-	rc=gpio_direction_output(15, 1);
-	if (rc < 0)  
-	pr_err("%s  gpio  direction 15 failed\n",__func__);	
-	pr_err("%s gpio15 CAMIF_VAAM_EN output=1\n",__func__);	
-	
-	gpio_free(55);	
-	rc=gpio_request(55,"ov5640");	
-	if (rc < 0)  {
-	pr_err("%s  gpio  requst 55 failed\n",__func__);
-	goto request_gpio_failed;
-	}
-	rc=gpio_direction_output(55, 1);
-	if (rc < 0)  
-	pr_err("%s  gpio  direction 55 failed\n",__func__);
-	pr_err("%s  gpio55 CAM_LDO_EN output=1\n",__func__);	
-	
-	rc=gpio_request(54,"ov5640");
-	if (rc < 0)  {
-	pr_err("%s  gpio  requst 54 failed\n",__func__);
-	goto request_gpio_failed;
-	}
-	rc=gpio_direction_output(54, 0);
-	pr_err("%s  output=0 exit PWD\n",__func__);	
-	
-	rc=msm_camera_i2c_write(s_ctrl->sensor_i2c_client,0x300e, 0x45,MSM_CAMERA_I2C_BYTE_DATA);
+
+	rc = msm_camera_config_gpio_table(data, 1);
 	if (rc < 0) {
-	pr_err("%s: i2c write failed\n", __func__);
-	return rc;
+		pr_err("%s: config gpio failed\n", __func__);
+		goto config_gpio_failed;
 	}
-	msleep(10);	
-	//yanwei
-	
+
 	if (s_ctrl->sensor_device_type == MSM_SENSOR_I2C_DEVICE) {
 		if (s_ctrl->clk_rate != 0)
 			cam_8960_clk_info->clk_rate = s_ctrl->clk_rate;
@@ -1561,18 +1551,7 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 			goto enable_clk_failed;
 		}
 	}
-	//yanwei
-	rc = msm_camera_request_gpio_table(data, 1);
-	if (rc < 0) {
-		pr_err("%s: request gpio failed\n", __func__);
-		goto request_gpio_failed;
-	}
-	rc = msm_camera_config_gpio_table(data, 1);
-	if (rc < 0) {
-		pr_err("%s: config gpio failed\n", __func__);
-		goto config_gpio_failed;
-	}
-	//yanwei	
+
 	if (!s_ctrl->power_seq_delay)
 		usleep_range(1000, 2000);
 	else if (s_ctrl->power_seq_delay < 20)
@@ -1625,7 +1604,6 @@ config_vreg_failed:
 	msm_camera_request_gpio_table(data, 0);
 request_gpio_failed:
 	kfree(s_ctrl->reg_ptr);
-			pr_err("%s X\n", __func__);	
 	return rc;
 }
 
@@ -1633,9 +1611,6 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
 	struct device *dev = NULL;
-	int32_t rc = 0;
-	pr_err("%s\n", __func__);
-	
 	if (s_ctrl->sensor_device_type == MSM_SENSOR_PLATFORM_DEVICE)
 		dev = &s_ctrl->pdev->dev;
 	else
@@ -1652,22 +1627,6 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 
 	if (data->sensor_platform_info->ext_power_ctrl != NULL)
 		data->sensor_platform_info->ext_power_ctrl(0);
- //yanwei
-	rc=msm_camera_i2c_write(s_ctrl->sensor_i2c_client,0x300e, 0x5d,MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0) {
-	pr_err("%s: i2c write failed\n", __func__);
-	return rc;
-	}
-
-	gpio_free(54);	
-	rc=gpio_request(54,"ov5640");	
-	if (rc < 0)  {
-	pr_err("%s  gpio  requst 54 failed\n",__func__);
-	}
-	rc=gpio_direction_output(54, 1);
-	pr_err("%s  gpio54 output=1 entry PWD\n",__func__);		
-	msleep(10);	
- //yanwei
 	if (s_ctrl->sensor_device_type == MSM_SENSOR_I2C_DEVICE)
 		msm_cam_clk_enable(dev, cam_8960_clk_info, s_ctrl->cam_clk,
 			ARRAY_SIZE(cam_8960_clk_info), 0);
@@ -1692,23 +1651,22 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	s_ctrl->curr_res = MSM_SENSOR_INVALID_RES;
 	return 0;
 }
- 
+
 int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
 	uint16_t chipid = 0;
-	pr_err("%s %d\n",__func__,__LINE__);
 	rc = msm_camera_i2c_read(
 			s_ctrl->sensor_i2c_client,
 			s_ctrl->sensor_id_info->sensor_id_reg_addr, &chipid,
 			MSM_CAMERA_I2C_WORD_DATA);
 	if (rc < 0) {
-		pr_err("%s: %s: read id failed line=%d\n", __func__,
-			s_ctrl->sensordata->sensor_name,__LINE__);
+		pr_err("%s: %s: read id failed\n", __func__,
+			s_ctrl->sensordata->sensor_name);
 		return rc;
 	}
 
-	pr_err("%s: read id: %x expected id %x:\n", __func__, chipid,
+	CDBG("%s: read id: %x expected id %x:\n", __func__, chipid,
 		s_ctrl->sensor_id_info->sensor_id);
 	if (chipid != s_ctrl->sensor_id_info->sensor_id) {
 		pr_err("msm_sensor_match_id chip id doesnot match\n");
@@ -1722,7 +1680,7 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 {
 	int rc = 0;
 	struct msm_sensor_ctrl_t *s_ctrl;
-	pr_err("%s %s_i2c_probe called\n", __func__, client->name);
+	CDBG("%s %s_i2c_probe called\n", __func__, client->name);
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		pr_err("%s %s i2c_check_functionality failed\n",
 			__func__, client->name);
@@ -1882,6 +1840,11 @@ int32_t msm_sensor_power(struct v4l2_subdev *sd, int on)
 	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(sd);
 	mutex_lock(s_ctrl->msm_sensor_mutex);
 	if (on) {
+		if(s_ctrl->sensor_state == MSM_SENSOR_POWER_UP) {
+			pr_err("%s: sensor already in power up state\n", __func__);
+			mutex_unlock(s_ctrl->msm_sensor_mutex);
+			return -EINVAL;
+		}
 		rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
 		if (rc < 0) {
 			pr_err("%s: %s power_up failed rc = %d\n", __func__,
@@ -1902,13 +1865,20 @@ int32_t msm_sensor_power(struct v4l2_subdev *sd, int on)
 					__func__,
 					s_ctrl->sensordata->sensor_name);
 				s_ctrl->sensor_state = MSM_SENSOR_POWER_DOWN;
+				goto power_up_failed;
 			}
 			s_ctrl->sensor_state = MSM_SENSOR_POWER_UP;
 		}
 	} else {
+		if(s_ctrl->sensor_state == MSM_SENSOR_POWER_DOWN) {
+			pr_err("%s: sensor already in power down state\n",__func__);
+			mutex_unlock(s_ctrl->msm_sensor_mutex);
+			return -EINVAL;
+		}
 		rc = s_ctrl->func_tbl->sensor_power_down(s_ctrl);
 		s_ctrl->sensor_state = MSM_SENSOR_POWER_DOWN;
 	}
+power_up_failed:
 	mutex_unlock(s_ctrl->msm_sensor_mutex);
 	return rc;
 }
@@ -2003,111 +1973,36 @@ static int msm_sensor_debugfs_stream_s(void *data, u64 val)
 }
 
 DEFINE_SIMPLE_ATTRIBUTE(sensor_debugfs_stream, NULL,
-			msm_sensor_debugfs_stream_s, "%llx\n");
+			msm_sensor_debugfs_stream_s, "%llu\n");
 
 static int msm_sensor_debugfs_test_s(void *data, u64 val)
 {
-	struct msm_sensor_ctrl_t *s_ctrl = (struct msm_sensor_ctrl_t *) data;
-	
-	if(!s_ctrl->msm_sensor_reg_default_data_type)
-		s_ctrl->msm_sensor_reg_default_data_type=1;
-	
-	s_ctrl->msm_sensor_reg_default_data_type=val;
-	
+	CDBG("val: %llu\n", val);
 	return 0;
 }
 
-static int msm_sensor_debugfs_test_g(void *data, u64 *val)
-{
-	struct msm_sensor_ctrl_t *s_ctrl = (struct msm_sensor_ctrl_t *) data;
-	
-	if(!s_ctrl->msm_sensor_reg_default_data_type)
-		s_ctrl->msm_sensor_reg_default_data_type=1;
-	
-	*val=s_ctrl->msm_sensor_reg_default_data_type;
-	
-	return 0;
-}
+DEFINE_SIMPLE_ATTRIBUTE(sensor_debugfs_test, NULL,
+			msm_sensor_debugfs_test_s, "%llu\n");
 
-DEFINE_SIMPLE_ATTRIBUTE(sensor_debugfs_test, msm_sensor_debugfs_test_g,
-			msm_sensor_debugfs_test_s, "%llx\n");
-
-uint64_t address_for_mipi_test=0;
-static int msm_sensor_debugfs_setaddr(void *data, u64 val)
-{
-	pr_err("set address to : 0x%llx\n", val);
-	address_for_mipi_test=val;
-	return 0;
-}
-
-static int msm_sensor_debugfs_getaddr(void *data, u64 *val)
-{
-	*val=address_for_mipi_test;
-	pr_err("current address is : 0x%llx\\n", address_for_mipi_test);
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(sensor_debugfs_address, msm_sensor_debugfs_getaddr,
-			msm_sensor_debugfs_setaddr, "%llx\n");
-
-static int msm_sensor_debugfs_setvalue(void *data, u64 val)
-{
-	
-	struct msm_sensor_ctrl_t *s_ctrl = (struct msm_sensor_ctrl_t *) data;
-	pr_err("address is : 0x%llx value  is: %llx\n", address_for_mipi_test,val);
-	msm_camera_i2c_write(
-			s_ctrl->sensor_i2c_client,
-			address_for_mipi_test, val,
-			s_ctrl->msm_sensor_reg_default_data_type);
-	return 0;
-}
-
-static int msm_sensor_debugfs_getvalue(void *data, u64 *val)
-{
-	
-	struct msm_sensor_ctrl_t *s_ctrl = (struct msm_sensor_ctrl_t *) data;
-	uint16_t temp;
-	
-	pr_err("address_for_mipi_test=0x%llx \n", address_for_mipi_test);
-	
-	msm_camera_i2c_read(
-			s_ctrl->sensor_i2c_client,
-			address_for_mipi_test, &temp,
-			s_ctrl->msm_sensor_reg_default_data_type);
-	*val=temp;
-	pr_err("the value of 0x%llx  is  0x%x \n", address_for_mipi_test,temp);
-
-	return 0;
-}
-DEFINE_SIMPLE_ATTRIBUTE(sensor_debugfs_value, msm_sensor_debugfs_getvalue,
-			msm_sensor_debugfs_setvalue, "%llx\n");
-
-struct dentry *debugfs_base=NULL;
 int msm_sensor_enable_debugfs(struct msm_sensor_ctrl_t *s_ctrl)
 {
-	struct dentry  *sensor_dir;
-	pr_err("%s this sensor is %s   \n", __func__,s_ctrl->sensordata->sensor_name);
-
-	if (!debugfs_base) {
-		debugfs_base = debugfs_create_dir("msm_sensor", NULL);
-	} 
+	struct dentry *debugfs_base, *sensor_dir;
+	debugfs_base = debugfs_create_dir("msm_sensor", NULL);
 	if (!debugfs_base)
 		return -ENOMEM;
+
 	sensor_dir = debugfs_create_dir
 		(s_ctrl->sensordata->sensor_name, debugfs_base);
 	if (!sensor_dir)
 		return -ENOMEM;
+
 	if (!debugfs_create_file("stream", S_IRUGO | S_IWUSR, sensor_dir,
 			(void *) s_ctrl, &sensor_debugfs_stream))
 		return -ENOMEM;
+
 	if (!debugfs_create_file("test", S_IRUGO | S_IWUSR, sensor_dir,
 			(void *) s_ctrl, &sensor_debugfs_test))
 		return -ENOMEM;
-	if (!debugfs_create_file("address", S_IRUGO | S_IWUSR, sensor_dir,
-			(void *) s_ctrl, &sensor_debugfs_address))
-		return -ENOMEM;
-	if (!debugfs_create_file("value", S_IRUGO | S_IWUSR, sensor_dir,
-			(void *) s_ctrl, &sensor_debugfs_value))
-		return -ENOMEM;
+
 	return 0;
 }

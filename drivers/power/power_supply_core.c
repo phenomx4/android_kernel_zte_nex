@@ -145,7 +145,7 @@ static void power_supply_changed_work(struct work_struct *work)
 		class_for_each_device(power_supply_class, NULL, psy,
 				      __power_supply_changed_work);
 
-		//power_supply_update_leds(psy);			//ZTE jiangfeng remove
+		power_supply_update_leds(psy);
 
 		kobject_uevent(&psy->dev->kobj, KOBJ_CHANGE);
 		spin_lock_irqsave(&psy->changed_lock, flags);
@@ -155,16 +155,11 @@ static void power_supply_changed_work(struct work_struct *work)
 	spin_unlock_irqrestore(&psy->changed_lock, flags);
 }
 
-#if 0
 void power_supply_changed(struct power_supply *psy)
-#else
-void power_supply_changed_ori(struct power_supply *psy,const char* func,int line)
-#endif
 {
 	unsigned long flags;
 
 	dev_dbg(psy->dev, "%s\n", __func__);
-	printk("psy change, func %s,line %d,psy name: %s\n",func, line,psy->name);	//ZTE jiangfeng add
 
 	spin_lock_irqsave(&psy->changed_lock, flags);
 	psy->changed = true;
@@ -172,11 +167,7 @@ void power_supply_changed_ori(struct power_supply *psy,const char* func,int line
 	spin_unlock_irqrestore(&psy->changed_lock, flags);
 	schedule_work(&psy->changed_work);
 }
-#if 0
 EXPORT_SYMBOL_GPL(power_supply_changed);
-#else
-EXPORT_SYMBOL_GPL(power_supply_changed_ori);
-#endif
 
 static int __power_supply_am_i_supplied(struct device *dev, void *data)
 {

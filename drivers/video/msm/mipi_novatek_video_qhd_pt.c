@@ -33,13 +33,7 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 		0x30, 0x07, 0x07,
 #endif
 		0x05, 0x14, 0x03, 0x0, 0x0, 0x54, 0x06, 0x10, 0x04, 0x0},
-		60,
 };
-
-static struct mipi_dsi_phy_ctrl *dsi_video_mode_phy_dbs[] = {
-	&dsi_video_mode_phy_db,
-};
-
 
 static int __init mipi_video_novatek_qhd_pt_init(void)
 {
@@ -90,8 +84,7 @@ static int __init mipi_video_novatek_qhd_pt_init(void)
 	pinfo.mipi.mdp_trigger = DSI_CMD_TRIGGER_SW;
 	pinfo.mipi.dma_trigger = DSI_CMD_TRIGGER_SW;
 	pinfo.mipi.frame_rate = 60;
-	pinfo.mipi.dsi_phy_db = dsi_video_mode_phy_dbs;
-	pinfo.mipi.dsi_phy_db_count = ARRAY_SIZE(dsi_video_mode_phy_dbs);
+	pinfo.mipi.dsi_phy_db = &dsi_video_mode_phy_db;
 
 	ret = mipi_novatek_device_register(&pinfo, MIPI_DSI_PRIM,
 						MIPI_DSI_PANEL_QHD_PT);

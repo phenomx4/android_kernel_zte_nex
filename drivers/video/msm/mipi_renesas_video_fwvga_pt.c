@@ -32,7 +32,6 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 	{0x00, 0xec, 0x31, 0xd2, 0x00, 0x40, 0x37, 0x62,
 	0x01, 0x0f, 0x07,
 	0x05, 0x14, 0x03, 0x0, 0x0, 0x0, 0x20, 0x0, 0x02, 0x0},
-	60,
 #else
 	/* DSI_BIT_CLK at 400MHz, 1 lane, RGB888 */
 	/* regulator */
@@ -53,11 +52,7 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 	0x30, 0x07, 0x07,
 #endif
 	0x05, 0x14, 0x03, 0x0, 0x0, 0x54, 0x06, 0x10, 0x04, 0x0},
-	60,
 #endif
-};
-static struct mipi_dsi_phy_ctrl *dsi_video_mode_phy_dbs[] = {
-	&dsi_video_mode_phy_db,
 };
 
 static int __init mipi_video_renesas_fwvga_pt_init(void)
@@ -134,8 +129,7 @@ static int __init mipi_video_renesas_fwvga_pt_init(void)
 	pinfo.mipi.mdp_trigger = DSI_CMD_TRIGGER_NONE;
 	pinfo.mipi.dma_trigger = DSI_CMD_TRIGGER_SW;
 	pinfo.mipi.frame_rate = 60;
-	pinfo.mipi.dsi_phy_db = dsi_video_mode_phy_dbs;
-	pinfo.mipi.dsi_phy_db_count = ARRAY_SIZE(dsi_video_mode_phy_dbs);
+	pinfo.mipi.dsi_phy_db = &dsi_video_mode_phy_db;
 	pinfo.mipi.dlane_swap = 0x01;
 	pinfo.mipi.tx_eot_append = 0x01;
 #else
@@ -155,8 +149,7 @@ static int __init mipi_video_renesas_fwvga_pt_init(void)
 	pinfo.mipi.mdp_trigger = DSI_CMD_TRIGGER_SW;
 	pinfo.mipi.dma_trigger = DSI_CMD_TRIGGER_SW;
 	pinfo.mipi.frame_rate = 60;
-	pinfo.mipi.dsi_phy_db = dsi_video_mode_phy_dbs;
-	pinfo.mipi.dsi_phy_db_count = ARRAY_SIZE(dsi_video_mode_phy_dbs);
+	pinfo.mipi.dsi_phy_db = &dsi_video_mode_phy_db;
 #endif
 
 	ret = mipi_renesas_device_register(&pinfo, MIPI_DSI_PRIM,

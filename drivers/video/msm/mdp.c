@@ -2,7 +2,7 @@
  *
  * MSM MDP Interface (used by framebuffer core)
  *
- * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2014, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1470,11 +1470,9 @@ ssize_t mdp_dma_show_event(struct device *dev,
 
 	INIT_COMPLETION(vsync_cntrl.vsync_wait);
 
-	//wait_for_completion(&vsync_cntrl.vsync_wait);
-	if(!wait_for_completion_timeout(&vsync_cntrl.vsync_wait,msecs_to_jiffies(40)))
-		pr_err("LCD%s %d  TIMEOUT_\n", __func__, __LINE__);
+	wait_for_completion(&vsync_cntrl.vsync_wait);
 	ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu",
-	ktime_to_ns(vsync_cntrl.vsync_time));
+			ktime_to_ns(vsync_cntrl.vsync_time));
 	buf[strlen(buf) + 1] = '\0';
 	return ret;
 }
@@ -1705,10 +1703,7 @@ void mdp_pipe_kickoff(uint32 term, struct msm_fb_data_type *mfd)
 		mdp_ppp_waiting = TRUE;
 		spin_unlock_irqrestore(&mdp_spin_lock, flag);
 		outpdw(MDP_BASE + 0x30, 0x1000);
-		//wait_for_completion_killable(&mdp_ppp_comp);
-		if (!wait_for_completion_killable_timeout(&mdp_ppp_comp,
-								msecs_to_jiffies(40)))
-		printk(KERN_ERR "LCD%s: Timed out .\n",__func__);
+		wait_for_completion_killable(&mdp_ppp_comp);
 		mdp_disable_irq(term);
 
 		if (mdp_debug[MDP_PPP_BLOCK]) {
@@ -2934,18 +2929,20 @@ static int mdp_probe(struct platform_device *pdev)
 		if (mdp_pdata->cont_splash_enabled &&
 				 mfd->panel_info.pdest == DISPLAY_1) {
 			char *cp;
-			uint32 bpp = 4;
+			uint32 bpp = 3;
 			/*read panel wxh and calculate splash screen
 			  size*/
 			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
+			mdp_clk_ctrl(1);
+
 			mdp_pdata->splash_screen_size =
 				inpdw(MDP_BASE + 0x90004);
 			mdp_pdata->splash_screen_size =
-				(ALIGN(((mdp_pdata->splash_screen_size >> 16) &
-						0x00000FFF) ,32)* ALIGN((
-							mdp_pdata->splash_screen_size &
-							0x00000FFF),32)) * bpp;
+				(((mdp_pdata->splash_screen_size >> 16) &
+				  0x00000FFF) * (
+					  mdp_pdata->splash_screen_size &
+					  0x00000FFF)) * bpp;
 
 			mdp_pdata->splash_screen_addr =
 				inpdw(MDP_BASE + 0x90008);
@@ -3243,6 +3240,8 @@ static int mdp_probe(struct platform_device *pdev)
 			pdata->off = mdp4_overlay_writeback_off;
 			mfd->dma_fnc = mdp4_writeback_overlay;
 			mfd->dma = &dma_wb_data;
+			mutex_init(&mfd->writeback_mutex);
+			mutex_init(&mfd->unregister_mutex);
 			mdp4_display_intf_sel(EXTERNAL_INTF_SEL, DTV_INTF);
 		}
 		break;

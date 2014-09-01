@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@ enum {
 	HW_PLATFORM_LIQUID  = 9,
 	/* Dragonboard platform id is assigned as 10 in CDT */
 	HW_PLATFORM_DRAGON	= 10,
+	HW_PLATFORM_QRD	= 11,
 	HW_PLATFORM_INVALID
 };
 
@@ -47,7 +48,8 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_SVLTE_SURF] = "SLVTE_SURF",
 	[HW_PLATFORM_MTP] = "MTP",
 	[HW_PLATFORM_LIQUID] = "Liquid",
-	[HW_PLATFORM_DRAGON] = "Dragon"
+	[HW_PLATFORM_DRAGON] = "Dragon",
+	[HW_PLATFORM_QRD] = "QRD",
 };
 
 enum {
@@ -234,6 +236,7 @@ static enum msm_cpu cpu_of_id[] = {
 	[117] = MSM_CPU_8930,
 	[118] = MSM_CPU_8930,
 	[119] = MSM_CPU_8930,
+	[179] = MSM_CPU_8930,
 
 	/* 8627 IDs */
 	[120] = MSM_CPU_8627,
@@ -255,7 +258,6 @@ static enum msm_cpu cpu_of_id[] = {
 	[127] = MSM_CPU_8625,
 	[128] = MSM_CPU_8625,
 	[129] = MSM_CPU_8625,
-	[137] = MSM_CPU_8625,
 
 	/* 8064 MPQ ID */
 	[130] = MSM_CPU_8064,
@@ -280,6 +282,7 @@ static enum msm_cpu cpu_of_id[] = {
 	[143] = MSM_CPU_8930AA,
 	[144] = MSM_CPU_8930AA,
 	[160] = MSM_CPU_8930AA,
+	[180] = MSM_CPU_8930AA,
 
 	/* 8226 IDs */
 	[145] = MSM_CPU_8226,
@@ -289,6 +292,16 @@ static enum msm_cpu cpu_of_id[] = {
 
 	/* 8064AB IDs */
 	[153] = MSM_CPU_8064AB,
+
+	/* 8930AB IDs */
+	[154] = MSM_CPU_8930AB,
+	[155] = MSM_CPU_8930AB,
+	[156] = MSM_CPU_8930AB,
+	[157] = MSM_CPU_8930AB,
+	[181] = MSM_CPU_8930AB,
+
+	/* 8064AA IDs */
+	[172] = MSM_CPU_8064AA,
 
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -632,62 +645,6 @@ static struct sys_device soc_sys_device = {
 	.cls = &soc_sysdev_class,
 };
 
-/*
- * Support for FTM & RECOVERY mode by ZTE_BOOT_JIA_20120305, jia.jia
- * ZTE_PLATFORM
- */
-#ifdef ZTE_BOOT_MODE
-static int ftm_flag = 0;
-
-void socinfo_set_ftm_flag(int val)
-{
-	ftm_flag = val;
-
-}
-
-/*Return Value:    1 -- FTM MODE;  0-- NORNAL MODE*/
-int socinfo_get_ftm_flag(void)
-{
-    return ftm_flag;
-}
-
-EXPORT_SYMBOL(socinfo_get_ftm_flag);
-#endif
-
-/*
- * Support for reading board ID by ZTE_BOOT_JIA_20120628, jia.jia
- * ZTE_PLATFORM
- */
-#if 1
-static const char *socinfo_zte_hw_ver = NULL;
-
-static ssize_t socinfo_show_zte_hw_ver(struct sys_device *dev,
-                                               struct sysdev_attribute *attr,
-                                               char *buf)
-{
-    return snprintf(buf, PAGE_SIZE, "%s\n", socinfo_zte_hw_ver);
-}
-
-/*
- * Defined for op in
- * '/sys/devices/system/soc/soc0/zte_hw_ver'
- */
-static struct sysdev_attribute socinfo_zte_hw_ver_files[] = {
-    _SYSDEV_ATTR(zte_hw_ver, 0444, socinfo_show_zte_hw_ver, NULL),
-};
-
-void socinfo_sync_sysfs_zte_hw_ver(const char *hw_ver)
-{
-    if ((hw_ver == NULL) || (PAGE_SIZE < (strlen(hw_ver) + 1))) {
-        pr_err("%s: invalid length\n", __func__);
-        socinfo_zte_hw_ver = "INVALID";
-        return;
-    }
-
-    socinfo_zte_hw_ver = hw_ver;
-}
-EXPORT_SYMBOL(socinfo_sync_sysfs_zte_hw_ver);
-#endif
 static int __init socinfo_create_files(struct sys_device *dev,
 					struct sysdev_attribute files[],
 					int size)
@@ -725,19 +682,6 @@ static int __init socinfo_init_sysdev(void)
 		       __func__, err);
 		return err;
 	}
-	
-	/*
- * Support for reading board ID by ZTE_BOOT_JIA_20120628, jia.jia
- * ZTE_PLATFORM
- */
-#if 1
-    err = socinfo_create_files(&soc_sys_device, socinfo_zte_hw_ver_files,
-                               ARRAY_SIZE(socinfo_zte_hw_ver_files));
-    if (err) {
-        pr_err("%s: socinfo_create_files(socinfo_zte_board_id_files)=%d\n", __func__, err);
-        return err;
-    }
-#endif
 	socinfo_create_files(&soc_sys_device, socinfo_v1_files,
 				ARRAY_SIZE(socinfo_v1_files));
 	if (socinfo->v1.format < 2)
@@ -798,11 +742,6 @@ static void * __init setup_dummy_socinfo(void)
 			sizeof(dummy_socinfo.build_id));
 	} else if (machine_is_msm8625_rumi3())
 		dummy_socinfo.id = 127;
-	else if (early_machine_is_mpq8092()) {
-		dummy_socinfo.id = 146;
-		strlcpy(dummy_socinfo.build_id, "mpq8092 - ",
-		sizeof(dummy_socinfo.build_id));
-	}
 	strlcat(dummy_socinfo.build_id, "Dummy socinfo",
 		sizeof(dummy_socinfo.build_id));
 	return (void *) &dummy_socinfo;

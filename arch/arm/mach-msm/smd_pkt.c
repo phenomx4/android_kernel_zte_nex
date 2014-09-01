@@ -93,7 +93,7 @@ static uint32_t is_modem_smsm_inited(void);
 #define SMD_PKT_IPC_LOG_PAGE_CNT 2
 static void *smd_pkt_ilctxt;
 
-static int msm_smd_pkt_debug_mask = 8 ;
+static int msm_smd_pkt_debug_mask;
 module_param_named(debug_mask, msm_smd_pkt_debug_mask,
 		int, S_IRUGO | S_IWUSR | S_IWGRP);
 
@@ -324,48 +324,6 @@ static long smd_pkt_ioctl(struct file *file, unsigned int cmd,
 	return ret;
 }
 
-struct smd_channel {
-	volatile void *send; /* some variant of smd_half_channel */
-	volatile void *recv; /* some variant of smd_half_channel */
-	unsigned char *send_data;
-	unsigned char *recv_data;
-	unsigned fifo_size;
-	unsigned fifo_mask;
-	struct list_head ch_list;
-
-	unsigned current_packet;
-	unsigned n;
-	void *priv;
-	void (*notify)(void *priv, unsigned flags);
-
-	int (*read)(smd_channel_t *ch, void *data, int len, int user_buf);
-	int (*write)(smd_channel_t *ch, const void *data, int len,
-			int user_buf);
-	int (*read_avail)(smd_channel_t *ch);
-	int (*write_avail)(smd_channel_t *ch);
-	int (*read_from_cb)(smd_channel_t *ch, void *data, int len,
-			int user_buf);
-
-	void (*update_state)(smd_channel_t *ch);
-	unsigned last_state;
-	void (*notify_other_cpu)(void);
-
-	char name[20];
-	struct platform_device pdev;
-	unsigned type;
-
-	int pending_pkt_sz;
-
-	char is_pkt_ch;
-
-	/*
-	 * private internal functions to access *send and *recv.
-	 * never to be exported outside of smd
-	 */
-	struct smd_half_channel_access *half_ch;
-};
-
-extern int zte_smdctl_wakeup;
 ssize_t smd_pkt_read(struct file *file,
 		       char __user *buf,
 		       size_t count,
@@ -474,14 +432,7 @@ wait_for_packet:
 			return notify_reset(smd_pkt_devp);
 		}
 	} while (pkt_size != bytes_read);
-	
-	if(zte_smdctl_wakeup)
-	   {
-	     printk("SMD ch %u  data event ",smd_pkt_devp->ch->n );
-	     printk("SMD ch %s data event ",&smd_pkt_devp->ch->name[0]);
-	     D_READ_DUMP_BUFFER("Read: ", (bytes_read > 16 ? 16 : bytes_read), buf);
-		 zte_smdctl_wakeup = 0;
-		}
+	D_READ_DUMP_BUFFER("Read: ", (bytes_read > 16 ? 16 : bytes_read), buf);
 	mutex_unlock(&smd_pkt_devp->rx_lock);
 
 	mutex_lock(&smd_pkt_devp->ch_lock);
@@ -958,15 +909,14 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 				smd_pkt_devp->is_open, (2 * HZ));
 		if (r == 0) {
 			r = -ETIMEDOUT;
+			/* close the ch to sync smd's state with smd_pkt */
+			smd_close(smd_pkt_devp->ch);
+			smd_pkt_devp->ch = NULL;
 		}
 
 		if (r < 0) {
 			pr_err("%s: wait on smd_pkt_dev id:%d OPEN event failed"
 			       " rc:%d\n", __func__, smd_pkt_devp->i, r);
-			/* close the ch to sync smd's state with smd_pkt */
-			smd_close(smd_pkt_devp->ch);
-			smd_pkt_devp->ch = NULL;
-
 		} else if (!smd_pkt_devp->is_open) {
 			pr_err("%s: Invalid OPEN event on smd_pkt_dev id:%d\n",
 				__func__, smd_pkt_devp->i);

@@ -343,16 +343,6 @@ int mipi_dsi_buf_alloc(struct dsi_buf *dp, int size)
 	return size;
 }
 
-void mipi_dsi_buf_release(struct dsi_buf *dp)
-{
-	kfree(dp->start);
-	dp->start = NULL;
-	dp->end = NULL;
-	dp->data = NULL;
-	dp->size = 0;
-	dp->len = 0;
-}
-
 /*
  * mipi dsi gerneric long write
  */
@@ -1200,8 +1190,6 @@ int mipi_dsi_cmds_tx(struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
 		mipi_dsi_cmd_dma_tx(tp);
 		if (cm->wait)
 			msleep(cm->wait);
-		else
-			mdelay(1);
 		cm++;
 	}
 
@@ -1361,9 +1349,6 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	}
 
 	mipi_dsi_cmd_dma_rx(rp, cnt);
-
-	diff = rp->len - cnt;
-	rp->data += diff;
 
 	if (mfd->panel_info.mipi.no_max_pkt_size) {
 		/*

@@ -51,12 +51,6 @@ obj-$(CONFIG_DEBUG_SPINLOCK) += spinlock.o
 obj-$(CONFIG_PROVE_LOCKING) += spinlock.o
 obj-$(CONFIG_UID16) += uid16.o
 obj-$(CONFIG_MODULES) += module.o
-
-#
-# Support for CONFIG_ZTE_KMOD_AUTH_SEC by ZTE_BOOT_JIA_20130609 jia.jia
-#
-obj-$(CONFIG_ZTE_KMOD_AUTH_SEC) += zte_kmod_auth_sec.o
-
 obj-$(CONFIG_KALLSYMS) += kallsyms.o
 obj-$(CONFIG_BSD_PROCESS_ACCT) += acct.o
 obj-$(CONFIG_KEXEC) += kexec.o

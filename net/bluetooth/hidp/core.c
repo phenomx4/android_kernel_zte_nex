@@ -1,7 +1,7 @@
 /*
    HIDP implementation for Linux Bluetooth stack (BlueZ).
    Copyright (C) 2003-2004 Marcel Holtmann <marcel@holtmann.org>
-   Copyright (c) 2012 The Linux Foundation.  All rights reserved.
+   Copyright (c) 2012-2013 The Linux Foundation.  All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License version 2 as
@@ -101,7 +101,20 @@ static void __hidp_link_session(struct hidp_session *session)
 
 static void __hidp_unlink_session(struct hidp_session *session)
 {
-	if (session->conn)
+	bdaddr_t *dst = &session->bdaddr;
+	struct hci_dev *hdev;
+	struct device *dev = NULL;
+
+	hdev = hci_get_route(dst, BDADDR_ANY);
+	if (hdev) {
+		session->conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, dst);
+		if (session->conn && session->conn->hidp_session_valid)
+			dev = &session->conn->dev;
+
+		hci_dev_put(hdev);
+	}
+
+	if (dev)
 		hci_conn_put_device(session->conn);
 
 	list_del(&session->list);
@@ -648,8 +661,10 @@ static struct hci_conn *hidp_get_connection(struct hidp_session *session)
 
 	hci_dev_lock_bh(hdev);
 	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, dst);
-	if (conn)
+	if (conn) {
+		conn->hidp_session_valid = true;
 		hci_conn_hold_device(conn);
+	}
 	hci_dev_unlock_bh(hdev);
 
 	hci_dev_put(hdev);
@@ -1020,89 +1035,6 @@ int hidp_get_conninfo(struct hidp_conninfo *ci)
 		err = -ENOENT;
 
 	up_read(&hidp_session_sem);
-	return err;
-}
-
-int hidp_send_report_cmd(struct hidp_report *hidpr)	//zte-ccb-20130117
-{
-	struct hidp_session *session;
-	int err = 0;
-	unsigned char transType;
-	unsigned char buf1[1]={0x02};
-	//unsigned char buf2[186];
-
-	//memset(buf2,0,186);
-	//buf2[0]=0x01;
-	
-	printk("zte_bt hidp_send_report_cmd(0x%x) to %s\n",hidpr->hdr,batostr(&hidpr->bdaddr));
-
-	down_read(&hidp_session_sem);
-
-	session = __hidp_get_session(&hidpr->bdaddr);
-	
-	if (session){
-		
-		transType= hidpr->hdr & HIDP_HEADER_TRANS_MASK;
-		
-		printk("zte_bt get hidp session:  hci_conn(%p); ctrl_mtu(%d); intr_mtu(%d); hdr(0x%x) \n",
-			session->conn, session->ctrl_mtu, session->intr_mtu,hidpr->hdr);
-		
-		
-		switch(transType)
-		{
-			case HIDP_TRANS_DATA:
-				printk("zte_bt send DATA\n");
-				hidp_queue_report(session,buf1, sizeof(buf1));
-				break;
-			case HIDP_TRANS_DATC:
-				printk("zte_bt send DATC\n");
-				break;
-			case HIDP_TRANS_GET_REPORT:
-				printk("zte_bt send GET_REPORT\n");
-				hidp_send_ctrl_message(session,hidpr->hdr, buf1, sizeof(buf1));		// 41 ok 42(2); 43(4)
-				//hidp_send_ctrl_message(session,hidpr->hdr, NULL, 0);	//41/42=>INVALID_REPORT_ID(2) or  43=>INVALID_PARAMETER(4)
-				break;
-			case HIDP_TRANS_SET_REPORT:
-				printk("zte_bt send SET_REPORT\n");
-				hidp_send_ctrl_message(session,hidpr->hdr, buf1, sizeof(buf1));		//INVALID_PARAMETER(4)
-				break;
-			case HIDP_TRANS_GET_IDLE:
-				printk("zte_bt send GET_IDLE\n");
-				hidp_send_ctrl_message(session,HIDP_TRANS_GET_IDLE, NULL, 0);
-				break;
-			case HIDP_TRANS_SET_IDLE:
-				printk("zte_bt send SET_IDLE\n");
-				buf1[0]=0;	//infinit ( x*4ms=0ms-1020ms)
-				hidp_send_ctrl_message(session,HIDP_TRANS_SET_IDLE, buf1, sizeof(buf1));
-				break;
-			case HIDP_TRANS_HANDSHAKE:
-				printk("zte_bt send HANDSHAKE\n");
-				hidp_send_ctrl_message(session,hidpr->hdr, NULL, 0);
-				break;
-			case HIDP_TRANS_HID_CONTROL:
-				printk("zte_bt send HID_CONTROL\n");
-				hidp_send_ctrl_message(session,hidpr->hdr, NULL, 0);
-				break;
-			case HIDP_TRANS_GET_PROTOCOL:
-				printk("zte_bt send GET_PROTOCOL\n");
-				hidp_send_ctrl_message(session,HIDP_TRANS_GET_PROTOCOL, NULL, 0);
-				break;
-			case HIDP_TRANS_SET_PROTOCOL:
-				printk("zte_bt send SET_PROTOCOL\n");
-				hidp_send_ctrl_message(session,HIDP_TRANS_SET_PROTOCOL, NULL, 0);
-				break;
-			default:
-				printk("zte_bt Type %x not recognized !\n", hidpr->hdr);
-				break;
-		}
-	}
-	else{
-		printk("zte_bt can't get hidp session from input btaddr\n");
-		err = -ENOENT;
-	}
-	
-	up_read(&hidp_session_sem);
-	
 	return err;
 }
 

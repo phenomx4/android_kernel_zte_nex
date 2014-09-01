@@ -38,7 +38,7 @@
 
 static struct workqueue_struct *gsmd_wq;
 
-
+#define SMD_N_PORTS	2
 #define CH_OPENED	0
 #define CH_READY	1
 struct smd_port_info {
@@ -47,19 +47,14 @@ struct smd_port_info {
 	unsigned long		flags;
 };
 
-struct smd_port_info smd_pi[] = {
+struct smd_port_info smd_pi[SMD_N_PORTS] = {
 	{
 		.name = "DS",
-	},
-	{
-		.name = "DATA1",
 	},
 	{
 		.name = "UNUSED",
 	},
 };
-
-#define SMD_N_PORTS	ARRAY_SIZE(smd_pi)
 
 struct gsmd_port {
 	unsigned		port_num;
@@ -77,6 +72,7 @@ struct gsmd_port {
 
 	struct smd_port_info	*pi;
 	struct delayed_work	connect_work;
+	struct work_struct	disconnect_work;
 
 	/* At present, smd does not notify
 	 * control bit change info from modem
@@ -594,6 +590,20 @@ static void gsmd_connect_work(struct work_struct *w)
 	}
 }
 
+static void gsmd_disconnect_work(struct work_struct *w)
+{
+	struct gsmd_port *port;
+	struct smd_port_info *pi;
+
+	port = container_of(w, struct gsmd_port, disconnect_work);
+	pi = port->pi;
+
+	pr_debug("%s: port:%p port#%d\n", __func__, port, port->port_num);
+
+	smd_close(port->pi->ch);
+	port->pi->ch = NULL;
+}
+
 static void gsmd_notify_modem(void *gptr, u8 portno, int ctrl_bits)
 {
 	struct gsmd_port *port;
@@ -616,12 +626,6 @@ static void gsmd_notify_modem(void *gptr, u8 portno, int ctrl_bits)
 
 	if (temp == port->cbits_to_modem)
 		return;
-
-	//wangzy,modify for slateDC AT command test
-	if((temp==0) && !(port->cbits_to_modem&TIOCM_RTS) ){		
-		temp=TIOCM_RTS|TIOCM_DTR;
-		}
-	//end
 
 	port->cbits_to_modem = temp;
 
@@ -742,10 +746,8 @@ void gsmd_disconnect(struct gserial *gser, u8 portno)
 				~port->cbits_to_modem);
 	}
 
-	if (port->pi->ch) {
-		smd_close(port->pi->ch);
-		port->pi->ch = NULL;
-	}
+	if (port->pi->ch)
+		queue_work(gsmd_wq, &port->disconnect_work);
 }
 
 #define SMD_CH_MAX_LEN	20
@@ -830,6 +832,7 @@ static int gsmd_port_alloc(int portno, struct usb_cdc_line_coding *coding)
 	INIT_WORK(&port->pull, gsmd_tx_pull);
 
 	INIT_DELAYED_WORK(&port->connect_work, gsmd_connect_work);
+	INIT_WORK(&port->disconnect_work, gsmd_disconnect_work);
 
 	smd_ports[portno].port = port;
 	pdrv = &smd_ports[portno].pdrv;

@@ -23,29 +23,9 @@
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/input/pmic8xxx-pwrkey.h>
 
-//zte jiangfeng add
-#include <linux/reboot.h>
-#include <linux/workqueue.h>
-//zte jiangfeng add, end
-
 #define PON_CNTL_1 0x1C
 #define PON_CNTL_PULL_UP BIT(7)
 #define PON_CNTL_TRIG_DELAY_MASK (0x7)
-
-enum {
-	MSM_PM_DEBUG_PRESS_KEY = BIT(0),	
-};
-
-
-int msm_pm_debug_mask1 =0;
-module_param_named(
-	debug_mask, msm_pm_debug_mask1, int, S_IRUGO | S_IWUSR | S_IWGRP
-);
-
-
-static int press_count=0;
-static int release_count=0;
-
 
 /**
  * struct pmic8xxx_pwrkey - pmic8xxx pwrkey information
@@ -57,27 +37,8 @@ struct pmic8xxx_pwrkey {
 	int key_press_irq;
 	int key_release_irq;
 	bool press;
-	struct timer_list timer;	//zte jiangfeng added
-	struct work_struct		pwrkey_poweroff_work;
 	const struct pm8xxx_pwrkey_platform_data *pdata;
 };
-
-extern int socinfo_get_ftm_flag(void);
-
-//zte jiangfeng add
-static void pwrkey_timer(unsigned long data)
-{
-	struct pmic8xxx_pwrkey *pwrkey = (struct pmic8xxx_pwrkey *)data;
-	schedule_work(&pwrkey->pwrkey_poweroff_work);
-}
-
-static void pwrkey_poweroff(struct work_struct *work)
-{
-	printk("power key long pressed, reboot now!\n");
-	kernel_restart(NULL);  
-}
-
-//zte jiangfeng add, end
 
 static irqreturn_t pwrkey_press_irq(int irq, void *_pwrkey)
 {
@@ -89,24 +50,9 @@ static irqreturn_t pwrkey_press_irq(int irq, void *_pwrkey)
 	} else {
 		pwrkey->press = true;
 	}
-   if (MSM_PM_DEBUG_PRESS_KEY & msm_pm_debug_mask1)
-   {
-   	    pr_info("pwrkey_press_irq KEY_POWER = %d , press_count = %d,  ,release_count = % d\n", KEY_POWER, ++press_count,release_count);
-   }
+
 	input_report_key(pwrkey->pwr, KEY_POWER, 1);
 	input_sync(pwrkey->pwr);
-
-//zte jiangfeng add
-	if(pwrkey->press ==	 true)
-	{
-		if(socinfo_get_ftm_flag())
-			pwrkey->timer.expires	=	jiffies + 3 * HZ;
-		else
-			pwrkey->timer.expires	=	jiffies + 8 * HZ;
-		add_timer(&pwrkey->timer);
-		printk("add timer of power key\n");
-	}
-//zte jiangfeng add, end
 
 	return IRQ_HANDLED;
 }
@@ -122,18 +68,10 @@ static irqreturn_t pwrkey_release_irq(int irq, void *_pwrkey)
 	} else {
 		pwrkey->press = false;
 	}
-	if (MSM_PM_DEBUG_PRESS_KEY & msm_pm_debug_mask1)
-	   {
-			pr_info("pwrkey_release_irq KEY_POWER = %d , press_count = %d,  ,release_count = % d\n", KEY_POWER, press_count,++release_count);
-	   }
 
 	input_report_key(pwrkey->pwr, KEY_POWER, 0);
 	input_sync(pwrkey->pwr);
 
-//zte jiangfeng add
-	del_timer(&pwrkey->timer);
-	printk("delete timer of power key\n");
-//zte jiangfeng add, end
 	return IRQ_HANDLED;
 }
 
@@ -237,17 +175,9 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 		goto free_input_dev;
 	}
 
-	//zte jiangfeng add
-	init_timer(&pwrkey->timer);
-	pwrkey->timer.data = (unsigned long)pwrkey;
-	pwrkey->timer.function = pwrkey_timer;
-	//zte jiangfeng added
-
 	pwrkey->key_press_irq = key_press_irq;
 	pwrkey->key_release_irq = key_release_irq;
 	pwrkey->pwr = pwr;
-	
-	INIT_WORK(&pwrkey->pwrkey_poweroff_work, pwrkey_poweroff);
 
 	platform_set_drvdata(pdev, pwrkey);
 
@@ -282,8 +212,6 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(&pdev->dev, pdata->wakeup);
-
-	
 
 	return 0;
 
@@ -326,7 +254,13 @@ static struct platform_driver pmic8xxx_pwrkey_driver = {
 		.pm	= &pm8xxx_pwr_key_pm_ops,
 	},
 };
-module_platform_driver(pmic8xxx_pwrkey_driver);
+
+static int __devinit pmic8xxx_pwrkey_init(void)
+{
+	return platform_driver_register(&pmic8xxx_pwrkey_driver);
+}
+
+subsys_initcall(pmic8xxx_pwrkey_init);
 
 MODULE_ALIAS("platform:pmic8xxx_pwrkey");
 MODULE_DESCRIPTION("PMIC8XXX Power Key driver");

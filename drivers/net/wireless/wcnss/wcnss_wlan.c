@@ -23,7 +23,6 @@
 #include <linux/workqueue.h>
 #include <linux/jiffies.h>
 #include <linux/gpio.h>
-#include <mach/msm_iomap.h>
 #include <linux/wakelock.h>
 #include <linux/delay.h>
 #include <linux/of.h>
@@ -37,15 +36,10 @@
 #include <mach/peripheral-loader.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
+#include <linux/mfd/pm8xxx/misc.h>
+#include <mach/subsystem_notif.h>
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 #include "wcnss_prealloc.h"
-#endif
-#if defined(CONFIG_MACH_MELIUS_SKT) || defined(CONFIG_MACH_MELIUS_KTT) || \
-	defined(CONFIG_MACH_MELIUS_LGT)
-#if !defined(CONFIG_RADIO_IRIS) && defined(CONFIG_IR_REMOCON_FPGA)
-/* workaround about conflict with qualcomm FM radio gpio */
-#include <mach/msm8930-gpio.h>
-#endif
 #endif
 
 #define DEVICE "wcnss_wlan"
@@ -125,6 +119,21 @@ struct wcnss_version {
 	unsigned char  minor;
 	unsigned char  version;
 	unsigned char  revision;
+};
+
+struct wcnss_pmic_dump {
+	char reg_name[10];
+	u16 reg_addr;
+};
+
+static struct wcnss_pmic_dump wcnss_pmic_reg_dump[] = {
+	{"S2", 0x1D8}, /* S2 */
+	{"L4", 0xB4},  /* L4 */
+	{"L10", 0xC0},  /* L10 */
+	{"LVS2", 0x62},   /* LVS2 */
+	{"S4", 0x1E8}, /*S4*/
+	{"LVS7", 0x06C}, /*LVS7*/
+	{"LVS1", 0x060}, /*LVS7*/
 };
 
 #define NVBIN_FILE "wlan/prima/WCNSS_qcom_wlan_nv.bin"
@@ -265,6 +274,8 @@ static struct {
 	wait_queue_head_t read_wait;
 	u16 unsafe_ch_count;
 	u16 unsafe_ch_list[WCNSS_MAX_CH_NUM];
+	void *wcnss_notif_hdle;
+	u8 is_shutdown;
 } *penv = NULL;
 
 static ssize_t wcnss_wlan_macaddr_store(struct device *dev,
@@ -380,9 +391,29 @@ static ssize_t wcnss_version_show(struct device *dev,
 static DEVICE_ATTR(wcnss_version, S_IRUSR,
 		wcnss_version_show, NULL);
 
+
+void wcnss_riva_dump_pmic_regs(void)
+{
+	int i, rc;
+	u8  val;
+
+	for (i = 0; i < ARRAY_SIZE(wcnss_pmic_reg_dump); i++) {
+		val = 0;
+		rc = pm8xxx_read_register(wcnss_pmic_reg_dump[i].reg_addr,
+				&val);
+		if (rc)
+			pr_err("PMIC READ: Failed to read addr = %d\n",
+					wcnss_pmic_reg_dump[i].reg_addr);
+		else
+			pr_err("PMIC READ: addr = %x, value = %x\n",
+					wcnss_pmic_reg_dump[i].reg_addr, val);
+	}
+}
+
 /* interface to reset Riva by sending the reset interrupt */
 void wcnss_reset_intr(void)
 {
+	wcnss_riva_dump_pmic_regs();
 	wmb();
 	__raw_writel(1 << 24, MSM_APCS_GCC_BASE + 0x8);
 }
@@ -477,17 +508,6 @@ static void wcnss_post_bootup(struct work_struct *work)
 	/* Since Riva is up, cancel any APPS vote for Iris & Riva VREGs  */
 	wcnss_wlan_power(&penv->pdev->dev, &penv->wlan_config,
 		WCNSS_WLAN_SWITCH_OFF);
-
-#if defined(CONFIG_MACH_MELIUS_SKT) || defined(CONFIG_MACH_MELIUS_KTT) || \
-	defined(CONFIG_MACH_MELIUS_LGT)
-#if !defined(CONFIG_RADIO_IRIS) && defined(CONFIG_IR_REMOCON_FPGA)
-	/* workaround about conflict with qualcomm FM radio gpio */
-	gpio_tlmm_config(GPIO_CFG(GPIO_IRDA_SDA, 0,
-		GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA), 1);
-	gpio_tlmm_config(GPIO_CFG(GPIO_IRDA_SCL, 0,
-		GPIO_CFG_INPUT,	GPIO_CFG_NO_PULL, GPIO_CFG_8MA), 1);
-#endif
-#endif
 }
 
 static int
@@ -624,12 +644,20 @@ EXPORT_SYMBOL(wcnss_get_wlan_config);
 
 int wcnss_device_ready(void)
 {
-	if (penv && penv->pdev && penv->nv_downloaded)
+	if (penv && penv->pdev && penv->nv_downloaded &&
+	    !wcnss_device_is_shutdown())
 		return 1;
 	return 0;
 }
 EXPORT_SYMBOL(wcnss_device_ready);
 
+int wcnss_device_is_shutdown(void)
+{
+	if (penv && penv->is_shutdown)
+		return 1;
+	return 0;
+}
+EXPORT_SYMBOL(wcnss_device_is_shutdown);
 
 struct resource *wcnss_wlan_get_memory_map(struct device *dev)
 {
@@ -1665,6 +1693,24 @@ exit:
 }
 
 
+static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
+				void *ss_handle)
+{
+	pr_debug("%s: wcnss notification event: %lu\n", __func__, code);
+
+	if (SUBSYS_BEFORE_SHUTDOWN == code)
+		penv->is_shutdown = 1;
+	else if (SUBSYS_AFTER_POWERUP == code)
+		penv->is_shutdown = 0;
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block wnb = {
+	.notifier_call = wcnss_notif_cb,
+};
+
+
 static const struct file_operations wcnss_node_fops = {
 	.owner = THIS_MODULE,
 	.open = wcnss_node_open,
@@ -1702,6 +1748,13 @@ wcnss_wlan_probe(struct platform_device *pdev)
 	if (ret)
 		return -ENOENT;
 
+	/* register wcnss event notification */
+	penv->wcnss_notif_hdle = subsys_notif_register_notifier("wcnss", &wnb);
+	if (IS_ERR(penv->wcnss_notif_hdle)) {
+		pr_err("wcnss: register event notification failed!\n");
+		return PTR_ERR(penv->wcnss_notif_hdle);
+	}
+
 	mutex_init(&penv->dev_lock);
 	mutex_init(&penv->ctrl_lock);
 	init_waitqueue_head(&penv->read_wait);
@@ -1726,6 +1779,8 @@ wcnss_wlan_probe(struct platform_device *pdev)
 static int __devexit
 wcnss_wlan_remove(struct platform_device *pdev)
 {
+	if (penv->wcnss_notif_hdle)
+		subsys_notif_unregister_notifier(penv->wcnss_notif_hdle, &wnb);
 	wcnss_remove_sysfs(&pdev->dev);
 	return 0;
 }
@@ -1781,13 +1836,6 @@ static void __exit wcnss_wlan_exit(void)
 	wcnss_prealloc_deinit();
 #endif
 }
-
-static unsigned char prealloc_mac_mem[32*1024];
-void* wcnss_get_prealloc_mac_context(void)
-{
-	return prealloc_mac_mem;
-}
-EXPORT_SYMBOL(wcnss_get_prealloc_mac_context);
 
 module_init(wcnss_wlan_init);
 module_exit(wcnss_wlan_exit);

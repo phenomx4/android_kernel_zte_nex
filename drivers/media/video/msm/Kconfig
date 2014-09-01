@@ -38,28 +38,11 @@ config IMX074
 	SONY 13.5 MP Bayer Sensor
 config OV5640
 	bool "Sensor OV5640 (YUV 5M)"
-	depends on MSM_CAMERA && MSM_CAMERA_V4L2
+	depends on MSM_CAMERA && !MSM_CAMERA_V4L2
 	default n
 	---help---
 	Omni 5M YUV Sensor
-config OV9740
-	bool "Sensor OV9740 (YUV 1M)"
-	depends on MSM_CAMERA && MSM_CAMERA_V4L2
-	default n
-	---help---
-	Omni 1M YUV Sensor
-config SP0A28
-	bool "Sensor SP0A28 (YUV 0.3M)"
-	depends on MSM_CAMERA && MSM_CAMERA_V4L2
-	default n
-	---help---
-	Omni 0.3M YUV Sensor	
-config LM3642
-	bool "led LM3642)"
-	depends on MSM_CAMERA && MSM_CAMERA_V4L2
-	default y
-	---help---
-	  MICRON 2M YUV Sensor
+
 config OV5647
 	bool "Sensor ov5647 (BAYER 5M)"
 	depends on MSM_CAMERA
@@ -91,7 +74,7 @@ config WEBCAM_OV7692
 	  Omni Vision VGA YUV Sensor.
 config WEBCAM_OV9726
 	bool "Sensor OV9726 (VGA Bayer)"
-	depends on MSM_CAMERA && (ARCH_MSM8X60 || ARCH_MSM7X30 || ARCH_MSM7X27A || ARCH_MSM8960)
+	depends on MSM_CAMERA && (ARCH_MSM8X60 || ARCH_MSM7X30 || ARCH_MSM7X27A)
 	default n
 	---help---
 	  Omni Vision VGA Bayer Sensor.
@@ -216,22 +199,6 @@ config OV2720
 	bool "Sensor ov2720 (Omnivision 2MP)"
 	depends on MSM_CAMERA
 
-
-config OV8825_ACT
-	bool " Internal  Actuator OV8825 (BAYER 8.0M)"
-	depends on MSM_CAMERA && ARCH_MSM8960
-	default n
-	---help---
-	Internal Actuator for OV 8.0 MP Bayer Sensor
-	
-config OV8825_ROHM
-	bool "External  ROHM Actuator OV8825 (BAYER 8.0M)"
-	depends on MSM_CAMERA && ARCH_MSM8960
-	default n
-	---help---
-	 External  ROHM Actuator for OV 8.0 MP Bayer Sensor
-	
-	
 config OV8825
 	bool "Sensor ov8825 (Omnivision 8M)"
 	depends on MSM_CAMERA
@@ -241,44 +208,24 @@ config OV8825
 	  two mipi lanes, required for msm8625 platform.
 	  Say Y here if this is msm8625 variant platform.
 
-config OV8830
-	bool "Sensor ov8830 (Omnivision 8MP)"
+config IMX135
+	bool "Sensor imx135 (Sony 13MP)"
 	depends on MSM_CAMERA
 	---help---
-	Support for OV8830 sensor driver.
-	Omnivision 8MP Bayer Sensor.
+	  Support for IMX135 sensor driver.
+	  This is a Sony 13MP Bayer Sensor with autofocus and video HDR
+	  support.
+	  Say Y if the platform uses IMX135 sensor.
 
-config OV8835
-	bool "Sensor ov8835 (Omnivision 8MP)"
+config OV9724
+	bool "Sensor ov9724 (Omnivision 1.3M)"
 	depends on MSM_CAMERA
-	default n
 	---help---
-	Support for OV8830 sensor driver.
-	Omnivision 8MP Bayer Sensor.
+	  Support for OV9724 sensor driver.
+	  It is a Bayer 1.3MP sensor with auto focus and it supports
+	  two mipi lanes, required for msm8625 platform.
+	  Say Y here if this is msm8625 variant platform.
 
-config ADP1650
-	bool "ADP1650"
-	depends on MSM_CAMERA
-	default n
-	---help---
-	  Enable support for LED flash for msm camera
-	  	
-config HI542
-	bool "Sensor hi542 (hynix 5M)"
-	depends on MSM_CAMERA
-	---help---
-	  Support for HI542 sensor driver.
-	  It is a Bayer 5MP sensor with auto focus and it supports
-	  two mipi lanes, required for msm8960 platform.
-	  Say Y here if this is msm8960 variant platform.
-
-config AR0542
-	bool "Sensor ar0542 (BAYER 5M)"
-	depends on MSM_CAMERA
-	---help---
-	  Support for AR0542 sensor driver.
-	  Aptina Bayer 5M RAW Sensor.
-	  
 config VB6801
 	bool "Sensor vb6801"
 	depends on MSM_CAMERA && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2
@@ -310,18 +257,6 @@ config IMX074_EEPROM
 
 config IMX091_EEPROM
 	bool "IMX091 EEPROM support"
-	depends on MSM_CAMERA
-
-config HI542_EEPROM
-	bool "HI542 EEPROM support"
-	depends on MSM_CAMERA
-
-config AR0542_EEPROM
-	bool "AR0542 EEPROM support"
-	depends on MSM_CAMERA
-
-config OV8830_EEPROM
-	bool "OV8830 EEPROM support"
 	depends on MSM_CAMERA
 
 config MSM_GEMINI
@@ -479,11 +414,3 @@ config OV7692
 	depends on MSM_CAMERA
 	---help---
 	  Omni Vision VGA YUV Sensor
-
-config SENSOR_INFO
-	bool "Get sensor info through EM"
-	depends on MSM_CAMERA 
-	default y
-	---help---
-	  Get sensor id and name through EM (Engineering Mode)
-	  

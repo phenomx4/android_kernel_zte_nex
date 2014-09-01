@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,22 +74,20 @@ VREG_CONSUMERS(L10) = {
 VREG_CONSUMERS(L11) = {
 	REGULATOR_SUPPLY("8921_l11",		NULL),
 	REGULATOR_SUPPLY("cam_vana",		"4-001a"),
+	REGULATOR_SUPPLY("cam_vana",		"4-0010"),
 	REGULATOR_SUPPLY("cam_vana",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vana",		"4-0048"),
 	REGULATOR_SUPPLY("cam_vana",		"4-0020"),
 	REGULATOR_SUPPLY("cam_vana",		"4-0034"),
-	REGULATOR_SUPPLY("cam_vana",		"4-0036"),
-	REGULATOR_SUPPLY("cam_vana",		"4-0010"),
 };
 VREG_CONSUMERS(L12) = {
 	REGULATOR_SUPPLY("8921_l12",		NULL),
 	REGULATOR_SUPPLY("cam_vdig",		"4-001a"),
+	REGULATOR_SUPPLY("cam_vdig",		"4-0010"),
 	REGULATOR_SUPPLY("cam_vdig",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vdig",		"4-0048"),
 	REGULATOR_SUPPLY("cam_vdig",		"4-0020"),
 	REGULATOR_SUPPLY("cam_vdig",		"4-0034"),
-	REGULATOR_SUPPLY("cam_vdig",		"4-0036"),
-	REGULATOR_SUPPLY("cam_vdig",		"4-0010"),
 };
 VREG_CONSUMERS(L14) = {
 	REGULATOR_SUPPLY("8921_l14",		NULL),
@@ -102,12 +100,11 @@ VREG_CONSUMERS(L15) = {
 VREG_CONSUMERS(L16) = {
 	REGULATOR_SUPPLY("8921_l16",		NULL),
 	REGULATOR_SUPPLY("cam_vaf",		"4-001a"),
+	REGULATOR_SUPPLY("cam_vaf",		"4-0010"),
 	REGULATOR_SUPPLY("cam_vaf",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vaf",		"4-0048"),
 	REGULATOR_SUPPLY("cam_vaf",		"4-0020"),
 	REGULATOR_SUPPLY("cam_vaf",		"4-0034"),
-	REGULATOR_SUPPLY("cam_vaf",		"4-0036"),
-	REGULATOR_SUPPLY("cam_vaf",		"4-0010"),
 };
 VREG_CONSUMERS(L17) = {
 	REGULATOR_SUPPLY("8921_l17",		NULL),
@@ -224,12 +221,11 @@ VREG_CONSUMERS(LVS4) = {
 VREG_CONSUMERS(LVS5) = {
 	REGULATOR_SUPPLY("8921_lvs5",		NULL),
 	REGULATOR_SUPPLY("cam_vio",		"4-001a"),
+	REGULATOR_SUPPLY("cam_vio",		"4-0010"),
 	REGULATOR_SUPPLY("cam_vio",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vio",		"4-0048"),
 	REGULATOR_SUPPLY("cam_vio",		"4-0020"),
 	REGULATOR_SUPPLY("cam_vio",		"4-0034"),
-	REGULATOR_SUPPLY("cam_vio",		"4-0036"),
-	REGULATOR_SUPPLY("cam_vio",		"4-0010"),
 };
 /* This mapping is used for CDP only. */
 VREG_CONSUMERS(CDP_LVS6) = {
@@ -551,7 +547,7 @@ msm_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L6,	 0, 1, 0, 2950000, 2950000, NULL,      0, 0),
 	RPM_LDO(L7,	 1, 1, 0, 1850000, 2950000, NULL,      10000, 10000),
 	RPM_LDO(L8,	 0, 1, 0, 2800000, 3000000, NULL,      0, 0),
-	RPM_LDO(L9,	 1, 1, 0, 3000000, 3000000, NULL,      0, 0),
+	RPM_LDO(L9,	 0, 1, 0, 3000000, 3000000, NULL,      0, 0),
 	RPM_LDO(L10,	 0, 1, 0, 3000000, 3000000, NULL,      0, 0),
 	RPM_LDO(L11,	 0, 1, 0, 2850000, 2850000, NULL,      0, 0),
 	RPM_LDO(L12,	 0, 1, 0, 1200000, 1200000, "8921_s4", 0, 0),
@@ -568,7 +564,7 @@ msm_rpm_regulator_init_data[] __devinitdata = {
 
 	/*	ID     a_on pd ss		    supply */
 	RPM_VS(LVS1,	 0, 1, 0,		    "8921_s4"),
-	RPM_VS(LVS2,	 1, 1, 0,		    "8921_s1"),
+	RPM_VS(LVS2,	 0, 1, 0,		    "8921_s1"),
 	RPM_VS(LVS3,	 0, 1, 0,		    "8921_s4"),
 	RPM_VS(LVS4,	 0, 1, 0,		    "8921_s4"),
 	RPM_VS(LVS5,	 0, 1, 0,		    "8921_s4"),
@@ -634,15 +630,26 @@ void __init configure_msm8960_power_grid(void)
 	static struct rpm_regulator_init_data *rpm_data;
 	int i;
 
-	if (machine_is_msm8960_cdp()) {
+	if (machine_is_msm8960_cdp() || cpu_is_msm8960ab()) {
 		/* Only modify LVS6 consumers for CDP targets. */
 		for (i = 0; i < ARRAY_SIZE(msm_rpm_regulator_init_data); i++) {
 			rpm_data = &msm_rpm_regulator_init_data[i];
-			if (rpm_data->id == RPM_VREG_ID_PM8921_LVS6) {
+			if (machine_is_msm8960_cdp() &&
+				rpm_data->id == RPM_VREG_ID_PM8921_LVS6) {
 				rpm_data->init_data.consumer_supplies
 					= vreg_consumers_CDP_LVS6;
 				rpm_data->init_data.num_consumer_supplies
 					= ARRAY_SIZE(vreg_consumers_CDP_LVS6);
+			}
+			if (cpu_is_msm8960ab() &&
+				rpm_data->id == RPM_VREG_ID_PM8921_S7) {
+				rpm_data->init_data.constraints.min_uV =
+								1275000;
+				rpm_data->init_data.constraints.max_uV =
+								1275000;
+				rpm_data->init_data.constraints.input_uV =
+								1275000;
+				rpm_data->default_uV = 1275000;
 			}
 		}
 	}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +28,7 @@
 #include <media/msm_camera.h>
 #include <media/v4l2-subdev.h>
 #include "msm_camera_i2c.h"
-#include "../eeprom/msm_camera_eeprom.h"
+#include "msm_camera_eeprom.h"
 #define Q8  0x00000100
 #define Q10 0x00000400
 
@@ -46,26 +46,6 @@ struct gpio_tlmm_cfg {
 	uint32_t drvstr;
 };
 
-struct otp_struct {
-int module_integrator_id;
-int lens_id;
-int production_year;
-int production_month;
-int production_day;
-int rg_ratio;
-int bg_ratio;
-int light_rg;
-int light_bg;
-int user_data[5];
-int lenc[62];
-int VCM_start;
-int VCM_end;
-uint32_t final_R_gain;
-uint32_t final_G_gain;
-uint32_t final_B_gain;
-int wbwritten;
-int lencwritten;
-};
 enum msm_sensor_reg_update {
 	/* Sensor egisters that need to be updated during initialization */
 	MSM_SENSOR_REG_INIT,
@@ -94,14 +74,6 @@ enum msm_camera_power_config_t {
 	CONFIG_I2C_MUX,
 };
 
-
- struct sensor_module_info_t{     /*HT for actuator compatiable*/
-	uint16_t module_vendor;
-	uint16_t actuator;
-	uint16_t driver_ic;
-	uint16_t len_id;
-};
-
 struct msm_camera_power_seq_t {
 	enum msm_camera_power_config_t power_config;
 	uint32_t delay;
@@ -115,7 +87,7 @@ struct msm_sensor_id_info_t {
 struct msm_sensor_reg_t {
 	enum msm_camera_i2c_data_type default_data_type;
 	struct msm_camera_i2c_reg_conf *start_stream_conf;
-	uint16_t start_stream_conf_size;
+	uint8_t start_stream_conf_size;
 	struct msm_camera_i2c_reg_conf *stop_stream_conf;
 	uint8_t stop_stream_conf_size;
 	struct msm_camera_i2c_reg_conf *group_hold_on_conf;
@@ -128,9 +100,6 @@ struct msm_sensor_reg_t {
 	struct msm_camera_i2c_conf_array *no_effect_settings;
 	struct msm_sensor_output_info_t *output_settings;
 	uint8_t num_conf;
-	/*added by yanwei for 893U10)*/
-	struct msm_camera_i2c_reg_conf  *afinit_settings;
-	uint16_t afinit_size;	
 };
 
 enum msm_sensor_device_type_t {
@@ -155,23 +124,20 @@ struct msm_sensor_v4l2_ctrl_info_t {
 	struct msm_camera_i2c_enum_conf_array *enum_cfg_settings;
 	int (*s_v4l2_ctrl) (struct msm_sensor_ctrl_t *,
 		struct msm_sensor_v4l2_ctrl_info_t *, int);
-	int (*s_v4l2_ctrl_e) (struct msm_sensor_ctrl_t *,  //yanwei add
-		struct msm_sensor_v4l2_ctrl_info_t *, uint32_t);	
 };
- 
+
 struct msm_sensor_fn_t {
 	void (*sensor_start_stream) (struct msm_sensor_ctrl_t *);
 	void (*sensor_stop_stream) (struct msm_sensor_ctrl_t *);
 	void (*sensor_group_hold_on) (struct msm_sensor_ctrl_t *);
 	void (*sensor_group_hold_off) (struct msm_sensor_ctrl_t *);
-	int (*sensor_get_flash_flag) (struct msm_sensor_ctrl_t *, uint8_t*); //add for af in dark scene lijing 20120521	
 
 	int32_t (*sensor_set_fps) (struct msm_sensor_ctrl_t *,
 			struct fps_cfg *);
 	int32_t (*sensor_write_exp_gain) (struct msm_sensor_ctrl_t *,
-			uint16_t, uint32_t);
+			uint16_t, uint32_t, int32_t, uint16_t);
 	int32_t (*sensor_write_snapshot_exp_gain) (struct msm_sensor_ctrl_t *,
-			uint16_t, uint32_t);
+			uint16_t, uint32_t, int32_t, uint16_t);
 	int32_t (*sensor_setting) (struct msm_sensor_ctrl_t *,
 			int update_type, int rt);
 	int32_t (*sensor_csi_setting) (struct msm_sensor_ctrl_t *,
@@ -186,18 +152,17 @@ struct msm_sensor_fn_t {
 	int (*sensor_power_down)
 		(struct msm_sensor_ctrl_t *);
 	int (*sensor_power_up) (struct msm_sensor_ctrl_t *);
-//jzq add 	
-	int (*sensor_otp_func) (struct msm_sensor_ctrl_t *);
 	int32_t (*sensor_match_id)(struct msm_sensor_ctrl_t *s_ctrl);
 	void (*sensor_adjust_frame_lines) (struct msm_sensor_ctrl_t *s_ctrl);
 	int32_t (*sensor_get_csi_params)(struct msm_sensor_ctrl_t *,
 		struct csi_lane_params_t *);
-	/*added by yanwei for P893U10*/
-	int (*afinit_setting) (struct msm_sensor_ctrl_t *);
-//wt for yuv sensor caf af iso_infor
-	int32_t (*sensor_get_iso_info) (struct msm_sensor_ctrl_t *,
-		uint16_t *);
-	int (*af_trigger) (struct msm_sensor_ctrl_t *);	
+	int (*sensor_set_vision_mode)(struct msm_sensor_ctrl_t *s_ctrl,
+			int32_t vision_mode_enable);
+	int (*sensor_set_vision_ae_control)(
+			struct msm_sensor_ctrl_t *s_ctrl, int ae_mode);
+	int32_t (*sensor_read_eeprom)(struct msm_sensor_ctrl_t *);
+	int32_t (*sensor_hdr_update)(struct msm_sensor_ctrl_t *,
+		 struct sensor_hdr_update_parm_t *);
 };
 
 struct msm_sensor_csi_info {
@@ -234,6 +199,7 @@ struct msm_sensor_ctrl_t {
 	struct msm_sensor_v4l2_ctrl_info_t *msm_sensor_v4l2_ctrl_info;
 	uint16_t num_v4l2_ctrl;
 	uint8_t is_csic;
+	int8_t vision_mode_flag;
 
 	uint16_t curr_line_length_pclk;
 	uint16_t curr_frame_length_lines;
@@ -261,16 +227,8 @@ struct msm_sensor_ctrl_t {
 	/* delay (in ms) after power up sequence */
 	uint16_t power_seq_delay;
 	struct msm_sensor_eeprom_data eeprom_data;
-	/*added by yanwei for P893U10*/	
-	struct msm_camera_csi2_params *curr_csi_params;
-	struct msm_camera_csi_params **csic_params;
-	struct msm_camera_csi2_params **csi_params;	
-#if defined (CONFIG_MACH_ROUNDTOP) || defined (CONFIG_MACH_OKMOK)
-        struct regulator **reg_ptr_bug; 
-#endif //jzq add for fix can not probe 8825 bug
-	enum msm_camera_i2c_data_type msm_sensor_reg_default_data_type;
 };
 
 struct msm_sensor_ctrl_t *get_sctrl(struct v4l2_subdev *sd);
-int msm_sensor_enable_debugfs(struct msm_sensor_ctrl_t *s_ctrl);
+
 #endif

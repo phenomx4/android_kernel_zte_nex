@@ -542,7 +542,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 					buf[cnt].handle = ion_alloc
 						(buf[cnt].client,
 						bufsz_4k_aligned, SZ_4K,
-						(0x1 << ION_AUDIO_HEAP_ID));
+						(0x1 << ION_AUDIO_HEAP_ID), 0);
 					if (IS_ERR_OR_NULL((void *)
 						buf[cnt].handle)) {
 						pr_err("%s: ION memory allocation for AUDIO failed\n",
@@ -564,7 +564,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 					}
 
 					buf[cnt].data = ion_map_kernel
-					(buf[cnt].client, buf[cnt].handle, 0);
+					(buf[cnt].client, buf[cnt].handle);
 					if (IS_ERR_OR_NULL((void *)
 						buf[cnt].data)) {
 						pr_err("%s: ION memory mapping for AUDIO failed\n",
@@ -677,7 +677,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 		goto fail;
 	}
 	buf[0].handle = ion_alloc(buf[0].client, bufsz * bufcnt, SZ_4K,
-				  (0x1 << ION_AUDIO_HEAP_ID));
+				  (0x1 << ION_AUDIO_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL((void *) buf[0].handle)) {
 		pr_err("%s: ION memory allocation for AUDIO failed\n",
 			__func__);
@@ -694,7 +694,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 		goto fail;
 	}
 
-	buf[0].data = ion_map_kernel(buf[0].client, buf[0].handle, 0);
+	buf[0].data = ion_map_kernel(buf[0].client, buf[0].handle);
 	if (IS_ERR_OR_NULL((void *) buf[0].data)) {
 		pr_err("%s: ION memory mapping for AUDIO failed\n", __func__);
 		mutex_unlock(&ac->cmd_lock);
@@ -4033,31 +4033,15 @@ static int __init q6asm_init(void)
 	memset(session, 0, sizeof(session));
 #ifdef CONFIG_DEBUG_FS
 	out_buffer = kmalloc(OUT_BUFFER_SIZE, GFP_KERNEL);
-//ZTE, begin
-#if 0
 	out_dentry = debugfs_create_file("audio_out_latency_measurement_node",\
-				S_IFREG | S_IRUGO | S_IWUGO,\
+				0664,\
 				NULL, NULL, &audio_output_latency_debug_fops);
-#else
-	out_dentry = debugfs_create_file("audio_out_latency_measurement_node",\
-				S_IFREG | 00664,\
-				NULL, NULL, &audio_output_latency_debug_fops);
-#endif
-//ZTE, end
 	if (IS_ERR(out_dentry))
 		pr_err("debugfs_create_file failed\n");
 	in_buffer = kmalloc(IN_BUFFER_SIZE, GFP_KERNEL);
-//ZTE, begin
-#if 0
 	in_dentry = debugfs_create_file("audio_in_latency_measurement_node",\
-				S_IFREG | S_IRUGO | S_IWUGO,\
+				0664,\
 				NULL, NULL, &audio_input_latency_debug_fops);
-#else
-	in_dentry = debugfs_create_file("audio_in_latency_measurement_node",\
-				S_IFREG | 00664,\
-				NULL, NULL, &audio_input_latency_debug_fops);
-#endif
-//ZTE, end
 	if (IS_ERR(in_dentry))
 		pr_err("debugfs_create_file failed\n");
 #endif

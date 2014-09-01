@@ -21,7 +21,6 @@
 #include <mach/socinfo.h>
 #include "devices.h"
 #include "board-8930.h"
-#include <mach/pmic.h>
 
 struct pm8xxx_gpio_init {
 	unsigned			gpio;
@@ -160,7 +159,6 @@ static struct pm8xxx_gpio_init pm8038_gpios[] __initdata = {
 
 /* Initial PM8038 MPP configurations */
 static struct pm8xxx_mpp_init pm8038_mpps[] __initdata = {
-	PM8038_MPP_INIT(3,SINK, PM8XXX_MPP_CS_OUT_5MA, CS_CTRL_DISABLE),
 };
 
 /* GPIO and MPP configurations for MSM8930 + PM8917 targets */
@@ -182,6 +180,8 @@ static struct pm8xxx_gpio_init pm8917_gpios[] __initdata = {
 
 /* Initial PM8917 MPP configurations */
 static struct pm8xxx_mpp_init pm8917_mpps[] __initdata = {
+	PM8917_MPP_INIT(PM8XXX_AMUX_MPP_3, A_INPUT,
+				PM8XXX_MPP_AIN_AMUX_CH8, DIN_TO_INT),
 	/* Configure MPP01 for USB ID detection */
 	PM8917_MPP_INIT(1, D_INPUT, PM8921_MPP_DIG_LEVEL_S4, DIN_TO_INT),
 };
@@ -314,21 +314,7 @@ static int pm8921_therm_mitigation[] = {
 	325,
 };
 
-#if defined(CONFIG_MACH_APOLLO) || defined(CONFIG_MACH_BECKY)	|| defined(CONFIG_MACH_WARPLTE) \
-	|| defined(CONFIG_MACH_COEUS)	|| defined(CONFIG_MACH_DEMETER)	||	defined(CONFIG_MACH_NESTOR) \
-	|| defined(CONFIG_MACH_GAEA)	|| defined(CONFIG_MACH_IRIS)	|| defined(CONFIG_MACH_METIS) \
-	|| defined(CONFIG_MACH_HERA)	|| defined(CONFIG_MACH_OCEANUS)
-#define MAX_VOLTAGE_MV 4350
-#else
 #define MAX_VOLTAGE_MV		4200
-#endif
-
-#if defined(CONFIG_MACH_APOLLO)	|| defined(CONFIG_MACH_DEMETER)
-#define ZTE_LIMIT_CHG_VOLTAGE 4250
-#else
-#define ZTE_LIMIT_CHG_VOLTAGE 4000
-#endif
-
 #define CHG_TERM_MA		100
 static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.update_time		= 60000,
@@ -340,32 +326,27 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.resume_voltage_delta	= 60,
 	.resume_charge_percent	= 99,
 	.term_current		= CHG_TERM_MA,
-	.cool_temp		= 2,
-	.warm_temp		= 44,
+	.cool_temp		= 10,
+	.warm_temp		= 45,
 	.temp_check_period	= 1,
-#if defined(CONFIG_MACH_METIS)
-	.max_bat_chg_current	= 700,
-#else
-	.max_bat_chg_current	= 1000,
-#endif
-	.cool_bat_chg_current	= 500,
-	.warm_bat_chg_current	= 500,
-	.cool_bat_voltage	= ZTE_LIMIT_CHG_VOLTAGE,
-	.warm_bat_voltage	= ZTE_LIMIT_CHG_VOLTAGE,
+	.max_bat_chg_current	= 1100,
+	.cool_bat_chg_current	= 350,
+	.warm_bat_chg_current	= 350,
+	.cool_bat_voltage	= 4100,
+	.warm_bat_voltage	= 4100,
 	.thermal_mitigation	= pm8921_therm_mitigation,
 	.thermal_levels		= ARRAY_SIZE(pm8921_therm_mitigation),
 	.led_src_config		= LED_SRC_VPH_PWR,
 	.rconn_mohm		= 18,
-#if defined(CONFIG_ZTE_NON_JEITA_COMPLIANCE)
-	.cold_thr=PM_SMBC_BATT_TEMP_COLD_THR__LOW, // 70%  	//0 degreeC
-	.hot_thr=PM_SMBC_BATT_TEMP_HOT_THR__HIGH,  // 35%	//45 degreeC
-#else
-	.cold_thr=PM_SMBC_BATT_TEMP_COLD_THR__HIGH, // 80%	-20 degreeC
-	.hot_thr=PM_SMBC_BATT_TEMP_HOT_THR__LOW,	// 25%	60 degreeC
-#endif
 };
 
-#define PM8038_WLED_MAX_CURRENT		20
+static struct pm8xxx_vibrator_platform_data pm8038_vib_pdata = {
+	.initial_vibrate_ms = 500,
+	.level_mV = 3000,
+	.max_timeout_ms = 15000,
+};
+
+#define PM8038_WLED_MAX_CURRENT		25
 #define PM8XXX_LED_PWM_PERIOD		1000
 #define PM8XXX_LED_PWM_DUTY_MS		20
 #define PM8038_RGB_LED_MAX_CURRENT	12
@@ -373,26 +354,18 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 static struct led_info pm8038_led_info[] = {
 	[0] = {
 		.name			= "wled",
-		//.name                 = "lcd-backlight",
 		.default_trigger	= "bkl_trigger",
 	},
 	[1] = {
-		.name			= "red",
+		.name			= "led:rgb_red",
 		.default_trigger	= "battery-charging",
 	},
 	[2] = {
-		.name			= "green",
-		.default_trigger	= "battery-full",
+		.name			= "led:rgb_green",
 	},
 	[3] = {
-		.name			= "blue",
+		.name			= "led:rgb_blue",
 	},
-	#if 1
-	[4] = {
-		.name			= "button-backlight",
-		.default_trigger	= "backlight",
-	},
-	#endif
 };
 
 static struct led_platform_data pm8038_led_core_pdata = {
@@ -405,15 +378,13 @@ static struct wled_config_data wled_cfg = {
 	.cs_out_en = true,
 	.ctrl_delay_us = 0,
 	.op_fdbck = true,
-	.ovp_val = WLED_OVP_32V,
+	.ovp_val = WLED_OVP_35V,
 	.boost_curr_lim = WLED_CURR_LIMIT_525mA,
 	.num_strings = 1,
 };
 
 static int pm8038_led0_pwm_duty_pcts[56] = {
-		0,
-		 10, 20, 30, 40, 50, 60, 70, 80, 90,100,
-		// 1, 4, 8, 12, 16, 20, 24, 28, 32,36,
+		1, 4, 8, 12, 16, 20, 24, 28, 32, 36,
 		40, 44, 46, 52, 56, 60, 64, 68, 72, 76,
 		80, 84, 88, 92, 96, 100, 100, 100, 98, 95,
 		92, 88, 84, 82, 78, 74, 70, 66, 62, 58,
@@ -465,27 +436,6 @@ static struct pm8xxx_led_config pm8038_led_configs[] = {
 		.pwm_period_us = PM8XXX_LED_PWM_PERIOD,
 		.pwm_duty_cycles = &pm8038_led0_pwm_duty_cycles,
 	},
-	#if 1
-    [4] = {
-       #if 1
-	    .id = PM8XXX_ID_LED_MPP3,
-	    .mode = PM8XXX_LED_MODE_MANUAL,
-	    #if defined(CONFIG_MACH_WARPLTE)&&!defined(CONFIG_ZTE_BOARD_WARPLTE_PCB_CZTX) 
-		.max_current = 6, //5MA (2-5MA, 4-10MA, 6-15MA, 8-20MA, 10-25MA, 12-30MA, 14-35MA, 16-40MA)		
-		#else
-		.max_current = 2, //5MA (2-5MA, 4-10MA, 6-15MA, 8-20MA, 10-25MA, 12-30MA, 14-35MA, 16-40MA)
-		#endif
-		.pwm_channel = -1,
-	   #else
-		.id = PM8XXX_ID_LED_MPP3,
-		.mode = PM8XXX_LED_MODE_PWM1,
-		.max_current = PM8921_LC_LED_MAX_CURRENT,
-		.pwm_channel = 3,
-		.pwm_period_us = PM8XXX_LED_PWM_PERIOD,
-		.pwm_duty_cycles = &pm8038_led0_pwm_duty_cycles,
-	   #endif
-	},	
-	#endif
 };
 
 static struct pm8xxx_led_platform_data pm8xxx_leds_pdata = {
@@ -511,7 +461,7 @@ static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
 
 static struct pm8xxx_spk_platform_data pm8xxx_spk_pdata = {
 	.spk_add_enable		= false,
-	.cd_ng_threshold	= 0x6,
+	.cd_ng_threshold	= 0x0,
 	.cd_nf_preamp_bias	= 0x1,
 	.cd_ng_hold		= 0x6,
 	.cd_ng_max_atten	= 0x0,
@@ -534,12 +484,13 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.low_voltage_calc_ms		= 1000,
 	.alarm_low_mv			= 3400,
 	.alarm_high_mv			= 4000,
-};
-
-static struct pm8xxx_vibrator_platform_data pm8xxx_vib_pdata = {
-	.initial_vibrate_ms  = 100,
-	.level_mV = 2800,
-	.max_timeout_ms = 15000,
+	.high_ocv_correction_limit_uv	= 50,
+	.low_ocv_correction_limit_uv	= 100,
+	.hold_soc_est			= 3,
+	.enable_fcc_learning		= 1,
+	.min_fcc_learning_soc		= 20,
+	.min_fcc_ocv_pc			= 30,
+	.min_fcc_learning_samples	= 5,
 };
 
 static struct pm8038_platform_data pm8038_platform_data __devinitdata = {
@@ -556,9 +507,6 @@ static struct pm8038_platform_data pm8038_platform_data __devinitdata = {
 	.leds_pdata		= &pm8xxx_leds_pdata,
 	.ccadc_pdata		= &pm8xxx_ccadc_pdata,
 	.spk_pdata		= &pm8xxx_spk_pdata,
-	//zte
-	.vibrator_pdata		=	&pm8xxx_vib_pdata
-	//zte, end
 };
 
 static struct msm_ssbi_platform_data msm8930_ssbi_pm8038_pdata __devinitdata = {
@@ -648,10 +596,16 @@ void __init msm8930_init_pmic(void)
 					&msm8930_ssbi_pm8038_pdata;
 		pm8038_platform_data.num_regulators
 			= msm8930_pm8038_regulator_pdata_len;
-		if (machine_is_msm8930_mtp())
+		if (machine_is_msm8930_mtp() || machine_is_msm8930_evt())
 			pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
 		else if (machine_is_msm8930_cdp())
 			pm8921_chg_pdata.has_dc_supply = true;
+		if (machine_is_msm8930_evt()) {
+			pm8038_platform_data.vibrator_pdata =
+				&pm8038_vib_pdata;
+			pm8038_platform_data.leds_pdata->configs[0]
+					.wled_cfg->comp_res_val = 80;
+		}
 	} else {
 		/* PM8917 configuration */
 		pmic_reset_irq = PM8917_IRQ_BASE + PM8921_RESOUT_IRQ;
@@ -664,8 +618,7 @@ void __init msm8930_init_pmic(void)
 		else if (machine_is_msm8930_cdp())
 			pm8921_chg_pdata.has_dc_supply = true;
 	}
-#if 0
-	if (!machine_is_msm8930_mtp())
+
+	if (!machine_is_msm8930_mtp() && !machine_is_msm8930_evt())
 		pm8921_chg_pdata.battery_less_hardware = 1;
-#endif
 }

@@ -1425,14 +1425,6 @@ config MODULE_SRCVERSION_ALL
 	  the version).  With this option, such a "srcversion" field
 	  will be created for all modules.  If unsure, say N.
 
-#
-# Support for CONFIG_ZTE_KMOD_AUTH_SEC by ZTE_BOOT_JIA_20130609 jia.jia
-#
-config ZTE_KMOD_AUTH_SEC
-    bool "ZTE Auth-Sec Kmod Support"
-    help
-     Support for auth-sec Kmod.
-
 endif # MODULES
 
 config INIT_ALL_POSSIBLE

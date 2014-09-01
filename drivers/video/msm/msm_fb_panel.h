@@ -56,11 +56,6 @@ typedef enum {
 	MAX_PHYS_TARGET_NUM,
 } DISP_TARGET_PHYS;
 
-enum {
-	BLT_SWITCH_TG_OFF,
-	BLT_SWITCH_TG_ON
-};
-
 /* panel info type */
 struct lcd_panel_info {
 	__u32 vsync_enable;
@@ -122,8 +117,7 @@ struct mipi_panel_info {
 	char t_clk_post; /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
 	char t_clk_pre;  /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
 	char vc;	/* virtual channel */
-	struct mipi_dsi_phy_ctrl **dsi_phy_db;
-	int    dsi_phy_db_count;
+	struct mipi_dsi_phy_ctrl *dsi_phy_db;
 	/* video mode */
 	char pulse_mode_hsa_he;
 	char hfp_power_stop;
@@ -183,10 +177,6 @@ struct msm_panel_info {
 	__u32 frame_rate;
 	__u32 frame_interval;
 
-	/* physical size in mm */
-	__u32 width;
-	__u32 height;
-
 	struct mddi_panel_info mddi;
 	struct lcd_panel_info lcd;
 	struct lcdc_panel_info lcdc;
@@ -212,9 +202,7 @@ struct msm_fb_panel_data {
 
 	/* function entry chain */
 	int (*on) (struct platform_device *pdev);
-	int (*controller_on_panel_on) (struct platform_device *pdev);
 	int (*off) (struct platform_device *pdev);
-	int power_on_panel_at_pan;
 	int (*late_init) (struct platform_device *pdev);
 	int (*early_off) (struct platform_device *pdev);
 	int (*power_ctrl) (boolean enable);
@@ -222,9 +210,6 @@ struct msm_fb_panel_data {
 	int (*clk_func) (int enable);
 	int (*fps_level_change) (struct platform_device *pdev,
 					u32 fps_level);
-	struct msm_panel_info *(*panel_detect) (struct msm_fb_data_type *mfd);
-	int (*update_panel) (struct platform_device *pdev);
-	int (*get_pcc_data) (struct msm_fb_data_type *mfd);
 };
 
 /*===========================================================================

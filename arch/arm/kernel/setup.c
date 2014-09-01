@@ -66,17 +66,6 @@
 #define MEM_SIZE	(16*1024*1024)
 #endif
 
-
-//ZTE_RIL_RJG_20120630 begin
-#ifdef CONFIG_ZTE_SDLOG
-extern int sdlog_flag;
-#define SOCINFO_CMDLINE_SDLOG_ENABLE          "sdlog.flag=enable"
-#endif
-//ZTE_RIL_RJG_20120630 end
-#if 1    //ZTE_XJB_20130216 for power_off charging
-int offcharging_flag=0;
-#endif//ZTE
-
 #if defined(CONFIG_FPE_NWFPE) || defined(CONFIG_FPE_FASTFPE)
 char fpe_type[8];
 
@@ -559,9 +548,7 @@ int __init arm_add_memory(phys_addr_t start, unsigned long size)
 	 */
 	if (bank->size == 0)
 		return -EINVAL;
-		
-	printk("bank: 0x%llx, size: 0x%lx\n",(long long)bank->start, bank->size);
-	
+
 	meminfo.nr_banks++;
 	return 0;
 }
@@ -934,24 +921,6 @@ static struct machine_desc * __init setup_machine_tags(unsigned int nr)
 	/* parse_early_param needs a boot_command_line */
 	strlcpy(boot_command_line, from, COMMAND_LINE_SIZE);
 
-
-    //ZTE_RIL_RJG_20120630 begin
-#ifdef CONFIG_ZTE_SDLOG
-    //sdlog flag is passed from boot parameter, set the flag if sdlog is enabled
-    if (strstr(boot_command_line, SOCINFO_CMDLINE_SDLOG_ENABLE))
-    {
-        sdlog_flag = 1;
-    }
-#endif
-    //ZTE_RIL_RJG_20120630 end
-#if 1   //ZTE_XJB_20130216 for power_off charging
-    //get the boot mode here.
-    if (strstr(boot_command_line, "androidboot.mode=charger"))
-    {
-        offcharging_flag = 1;
-	printk("ZTE :boot mode is offcharging/charger \n"); //ZTE
-    }
-#endif
 	return mdesc;
 }
 

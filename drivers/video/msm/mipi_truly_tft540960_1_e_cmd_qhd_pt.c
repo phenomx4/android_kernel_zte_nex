@@ -32,11 +32,6 @@ static struct mipi_dsi_phy_ctrl dsi_cmd_mode_phy_db = {
 	{0x01, 0xec, 0x31, 0xd2, 0x00, 0x40, 0x37, 0x62,
 	0x01, 0x0f, 0x07,
 	0x05, 0x14, 0x03, 0x0, 0x0, 0x0, 0x20, 0x0, 0x02, 0x0},
-	60,
-};
-static struct mipi_dsi_phy_ctrl *dsi_cmd_mode_phy_dbs[] = {
-	&dsi_cmd_mode_phy_db,
-
 };
 
 static int mipi_cmd_truly_qhd_pt_init(void)
@@ -87,8 +82,7 @@ static int mipi_cmd_truly_qhd_pt_init(void)
 	pinfo.mipi.insert_dcs_cmd = TRUE;
 	pinfo.mipi.wr_mem_continue = 0x3c;
 	pinfo.mipi.wr_mem_start = 0x2c;
-	pinfo.mipi.dsi_phy_db = dsi_cmd_mode_phy_dbs;
-	pinfo.mipi.dsi_phy_db_count = ARRAY_SIZE(dsi_cmd_mode_phy_dbs);
+	pinfo.mipi.dsi_phy_db = &dsi_cmd_mode_phy_db;
 	pinfo.mipi.tx_eot_append = 0x01;
 	pinfo.mipi.rx_eot_ignore = 0x0;
 	pinfo.mipi.dlane_swap = 0x01;

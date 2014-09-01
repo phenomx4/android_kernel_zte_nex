@@ -1,7 +1,7 @@
 /*
  *  Video for Linux Two header file
  *
- *  Copyright (C) 1999-2007, 2012-2013 the contributors
+ *  Copyright (C) 1999-2007 the contributors
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1298,13 +1298,6 @@ enum v4l2_colorfx {
 #define V4L2_CID_LASTP1                         (V4L2_CID_BASE+42)
 #define V4L2_CID_SPECIAL_EFFECT			(V4L2_CID_BASE+43)
 /* Minimum number of buffer neede by the device */
-#define V4L2_CID_ISO			(V4L2_CID_BASE+44)
-#define V4L2_CID_ANTIBANDING      (V4L2_CID_BASE+45) 
-#define V4L2_CID_FOCUSMODE   (V4L2_CID_BASE+46)
-#define V4L2_CID_BESTSHOT_MODE			(V4L2_CID_BASE+47)
-#define V4L2_CID_REDEYE_REDUCTION			(V4L2_CID_BASE+48)
-#define V4L2_CID_FACEDETECT_MODE			(V4L2_CID_BASE+49)
-#define V4L2_CID_TOUCH_AF_AE      (V4L2_CID_BASE+50)  
 
 /*  MPEG-class control IDs defined by V4L2 */
 #define V4L2_CID_MPEG_BASE 			(V4L2_CTRL_CLASS_MPEG | 0x900)
@@ -1810,6 +1803,7 @@ enum v4l2_mpeg_vidc_video_h264_au_delimiter {
 	V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED = 0,
 	V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_ENABLED = 1
 };
+
 #define V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO \
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 23)
 enum v4l2_mpeg_vidc_video_h264_vui_timing_info {
@@ -2094,7 +2088,6 @@ struct v4l2_enc_idx {
 #define V4L2_ENC_CMD_STOP       (1)
 #define V4L2_ENC_CMD_PAUSE      (2)
 #define V4L2_ENC_CMD_RESUME     (3)
-#define V4L2_ENC_QCOM_CMD_FLUSH  (4)
 
 /* Flags for V4L2_ENC_CMD_STOP */
 #define V4L2_ENC_CMD_STOP_AT_GOP_END    (1 << 0)
@@ -2131,9 +2124,6 @@ struct v4l2_encoder_cmd {
 /* Flags for V4L2_DEC_QCOM_CMD_FLUSH */
 #define V4L2_DEC_QCOM_CMD_FLUSH_OUTPUT  (1 << 0)
 #define V4L2_DEC_QCOM_CMD_FLUSH_CAPTURE (1 << 1)
-
-#define V4L2_QCOM_CMD_FLUSH_OUTPUT  (1 << 0)
-#define V4L2_QCOM_CMD_FLUSH_CAPTURE (1 << 1)
 
 /* Play format requirements (returned by the driver): */
 

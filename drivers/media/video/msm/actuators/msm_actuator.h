@@ -51,8 +51,6 @@ struct msm_actuator_func_tbl {
 			struct msm_actuator_move_params_t *);
 	int32_t (*actuator_move_focus) (struct msm_actuator_ctrl_t *,
 			struct msm_actuator_move_params_t *);
-	int32_t (*actuator_move_focus_macro) (struct msm_actuator_ctrl_t *,   /*HT for macro*/
-			struct msm_actuator_move_params_t *);
 	int32_t (*actuator_parse_i2c_params)(struct msm_actuator_ctrl_t *,
 			int16_t, uint32_t, uint16_t);
 	int32_t (*actuator_write_focus)(struct msm_actuator_ctrl_t *,
@@ -91,7 +89,6 @@ struct msm_actuator_ctrl_t {
 	uint16_t initial_code;
 	struct msm_camera_i2c_reg_tbl *i2c_reg_tbl;
 	uint16_t i2c_tbl_index;
-	uint32_t curr_hwparams;
 };
 
 struct msm_actuator_ctrl_t *get_actrl(struct v4l2_subdev *sd);

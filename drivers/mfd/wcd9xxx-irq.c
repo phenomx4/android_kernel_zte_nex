@@ -25,10 +25,7 @@
 #define BYTE_BIT_MASK(nr)		(1UL << ((nr) % BITS_PER_BYTE))
 #define BIT_BYTE(nr)			((nr) / BITS_PER_BYTE)
 
-/* ZTE_Audio_CJ_130225, chenjun, 2013-02-25, start */
-// fix:can't detect headset during sleep
-#define WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS 100 // chenjun:orig:100->5000
-/* ZTE_Audio_CJ_130225, chenjun, 2013-02-25, end */
+#define WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS 100
 
 struct wcd9xxx_irq {
 	bool level;

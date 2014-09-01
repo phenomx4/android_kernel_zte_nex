@@ -76,7 +76,6 @@
 #define HIDPCONNDEL	_IOW('H', 201, int)
 #define HIDPGETCONNLIST	_IOR('H', 210, int)
 #define HIDPGETCONNINFO	_IOR('H', 211, int)
-#define HIDPSENDDATA	_IOW('H', 212, int)		/* zte-ccb-20130117  */
 
 #define HIDP_VIRTUAL_CABLE_UNPLUG	0
 #define HIDP_BOOT_PROTOCOL_MODE		1
@@ -118,16 +117,10 @@ struct hidp_connlist_req {
 	struct hidp_conninfo __user *ci;
 };
 
-struct hidp_report{	//zte-ccb-20130117
-	unsigned char	hdr;
-	bdaddr_t	bdaddr;
-};
-
 int hidp_add_connection(struct hidp_connadd_req *req, struct socket *ctrl_sock, struct socket *intr_sock);
 int hidp_del_connection(struct hidp_conndel_req *req);
 int hidp_get_connlist(struct hidp_connlist_req *req);
 int hidp_get_conninfo(struct hidp_conninfo *ci);
-int hidp_send_report_cmd(struct hidp_report *hidpr);	//zte-ccb-20130117
 
 /* HIDP session defines */
 struct hidp_session {

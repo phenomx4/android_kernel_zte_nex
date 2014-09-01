@@ -134,12 +134,6 @@ obj-$(CONFIG_SENSORS_QPNP_ADC_VOLTAGE)	+= qpnp-adc-voltage.o qpnp-adc-common.o
 obj-$(CONFIG_SENSORS_QPNP_ADC_CURRENT)	+= qpnp-adc-current.o qpnp-adc-common.o
 
 obj-$(CONFIG_PMBUS)		+= pmbus/
-obj-$(CONFIG_SENSORS_AKM8962C)	+= akm8962.o
-obj-$(CONFIG_MXC_MMA8452)	+= mxc_mma8452.o
-obj-$(CONFIG_SENSORS_KXTIK)	+= kxtik.o
-obj-$(CONFIG_SENSORS_ST_LIS3DHTR)	+= lis3dhtr.o
-obj-y += geomagnetic/
-obj-y += orientation/
 
 ccflags-$(CONFIG_HWMON_DEBUG_CHIP) := -DDEBUG
 

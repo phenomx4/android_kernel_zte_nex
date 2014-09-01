@@ -68,13 +68,7 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 	0x77, 0x88, 0x99, /* Auto update by dsi-mipi driver */
 	0x00, 0x14, 0x03, 0x00, 0x02, /* common 8960 */
 	0x00, 0x20, 0x00, 0x01 }, /* common 8960 */
-	60,
 };
-
-static struct mipi_dsi_phy_ctrl *dsi_video_mode_phy_dbs[] = {
-	       &dsi_video_mode_phy_db,
-};
-
 
 /**
  * Module init.
@@ -138,9 +132,7 @@ static int __init mipi_chimei_wxga_init(void)
 	pinfo->mipi.t_clk_pre = 64;		/* Calculated */
 	pinfo->mipi.esc_byte_ratio = 4;
 
-	
-	pinfo->mipi.dsi_phy_db = dsi_video_mode_phy_dbs;
-	pinfo->mipi.dsi_phy_db_count = ARRAY_SIZE(dsi_video_mode_phy_dbs);
+	pinfo->mipi.dsi_phy_db = &dsi_video_mode_phy_db;
 
 	/* Four lanes are recomended for 1366x768 at 60 frames per second */
 	pinfo->mipi.frame_rate = 60; /* 60 frames per second */

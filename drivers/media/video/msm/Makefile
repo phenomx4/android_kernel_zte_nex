@@ -51,10 +51,8 @@ endif
 obj-$(CONFIG_QS_S5K4E1) += qs_s5k4e1.o qs_s5k4e1_reg.o
 obj-$(CONFIG_VB6801) += vb6801.o
 obj-$(CONFIG_IMX072) += imx072.o imx072_reg.o
-#obj-$(CONFIG_OV5640) += ov5640.o
+obj-$(CONFIG_OV5640) += ov5640.o
 obj-$(CONFIG_MT9D112) += mt9d112.o mt9d112_reg.o
-#add 893U10 flash driver lm3642 by yanwei
-obj-$(CONFIG_ADP1650) += adp1650.o
-obj-$(CONFIG_LM3642) += lm3642.o
+
 obj-$(CONFIG_MT9D113) += mt9d113.o mt9d113_reg.o
 obj-$(CONFIG_MSM_V4L2_VIDEO_OVERLAY_DEVICE) += msm_v4l2_video.o

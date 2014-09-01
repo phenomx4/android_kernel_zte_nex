@@ -1196,17 +1196,5 @@ msm8625_evb		MACH_MSM8625_EVB	MSM8625_EVB		4042
 msm8625_qrd7		MACH_MSM8625_QRD7	MSM8625_QRD7		4095
 msm8625_ffa		MACH_MSM8625_FFA	MSM8625_FFA		4166
 msm8625_evt		MACH_MSM8625_EVT	MSM8625_EVT		4193
-# ZTE Board Num by ZTE_BOOT_20120620 huang.yanjun
-apollo           MACH_APOLLO          APOLLO           7001
-warplte           MACH_WARPLTE         WARPLTE           7002
-becky            MACH_BECKY           BECKY            7003
-coeus            MACH_COEUS           COEUS            7004
-demeter          MACH_DEMETER         DEMETER          7005
-gaea          MACH_GAEA         GAEA          7007
-hera          MACH_HERA         HERA          7008
-iris          MACH_IRIS         IRIS          7009
-nex           MACH_NEX          NEX           7010
-nestor          MACH_NESTOR         NESTOR          7011
-metis          MACH_METIS         METIS          7012
-oceanus          MACH_OCEANUS         OCEANUS          7013
-stormer          MACH_STORMER         STORMER          7014
+apq8064_mako		MACH_APQ8064_MAKO	APQ8064_MAKO		7800
+msm8930_evt		MACH_MSM8930_EVT	MSM8930_EVT		4558

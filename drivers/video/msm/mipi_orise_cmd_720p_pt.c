@@ -31,13 +31,7 @@ static struct mipi_dsi_phy_ctrl dsi_cmd_mode_phy_db = {
 		{0x0, 0xf9, 0x30, 0xda, 0x00, 0x40, 0x03, 0x62,
 	0x40, 0x07, 0x03,
 	0x00, 0x1a, 0x00, 0x00, 0x02, 0x00, 0x20, 0x00, 0x01 },
-	60,
 };
-static struct mipi_dsi_phy_ctrl *dsi_cmd_mode_phy_dbs[] = {
-	&dsi_cmd_mode_phy_db,
-
-};
-
 
 static int __init mipi_cmd_orise_720p_pt_init(void)
 {
@@ -89,8 +83,8 @@ static int __init mipi_cmd_orise_720p_pt_init(void)
 	pinfo.mipi.insert_dcs_cmd = TRUE;
 	pinfo.mipi.wr_mem_continue = 0x3c;
 	pinfo.mipi.wr_mem_start = 0x2c;
-	pinfo.mipi.dsi_phy_db = dsi_cmd_mode_phy_dbs;
-	pinfo.mipi.dsi_phy_db_count = ARRAY_SIZE(dsi_cmd_mode_phy_dbs);
+	pinfo.mipi.dsi_phy_db = &dsi_cmd_mode_phy_db;
+
 	ret = mipi_orise_device_register(&pinfo, MIPI_DSI_PRIM,
 						MIPI_DSI_PANEL_720P_PT);
 	if (ret)

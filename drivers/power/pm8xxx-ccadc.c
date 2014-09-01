@@ -27,8 +27,6 @@
 #include <linux/delay.h>
 #include <linux/rtc.h>
 
-#include <linux/wakelock.h>			//zte jiangfeng add
-
 #define CCADC_ANA_PARAM		0x240
 #define CCADC_DIG_PARAM		0x241
 #define CCADC_RSV		0x242
@@ -79,13 +77,11 @@ struct pm8xxx_ccadc_chip {
 	unsigned int		calib_delay_ms;
 	unsigned long		last_calib_time;
 	int			last_calib_temp;
-	int			zte_temp_temperature;
 	int			eoc_irq;
 	int			r_sense_uohm;
 	struct delayed_work	calib_ccadc_work;
 	struct mutex		calib_mutex;
-
-	struct wake_lock	ccadc_cali_wake_lock;	//zte jiangfeng added
+	bool			periodic_wakeup;
 };
 
 static struct pm8xxx_ccadc_chip *the_chip;
@@ -372,7 +368,7 @@ static int get_current_time(unsigned long *now_tm_sec)
 	return 0;
 }
 
-void pm8xxx_calib_ccadc(void)
+static void __pm8xxx_calib_ccadc(int sample_count)
 {
 	u8 data_msb, data_lsb, sec_cntrl;
 	int result_offset, result_gain;
@@ -383,6 +379,8 @@ void pm8xxx_calib_ccadc(void)
 		pr_err("chip not initialized\n");
 		return;
 	}
+
+	pr_debug("sample_count = %d\n", sample_count);
 
 	mutex_lock(&the_chip->calib_mutex);
 	rc = pm8xxx_readb(the_chip->dev->parent,
@@ -410,7 +408,7 @@ void pm8xxx_calib_ccadc(void)
 	}
 
 	result_offset = 0;
-	for (i = 0; i < SAMPLE_COUNT; i++) {
+	for (i = 0; i < sample_count; i++) {
 		/* Short analog inputs to CCADC internally to ground */
 		rc = pm8xxx_writeb(the_chip->dev->parent, ADC_ARB_SECP_RSV,
 							CCADC_CALIB_RSV_GND);
@@ -436,7 +434,7 @@ void pm8xxx_calib_ccadc(void)
 		result_offset += result;
 	}
 
-	result_offset = result_offset / SAMPLE_COUNT;
+	result_offset = result_offset / sample_count;
 
 
 	pr_debug("offset result_offset = 0x%x, voltage = %llduV\n",
@@ -475,7 +473,7 @@ void pm8xxx_calib_ccadc(void)
 	}
 
 	result_gain = 0;
-	for (i = 0; i < SAMPLE_COUNT; i++) {
+	for (i = 0; i < sample_count; i++) {
 		rc = pm8xxx_writeb(the_chip->dev->parent,
 					ADC_ARB_SECP_RSV, CCADC_CALIB_RSV_25MV);
 		if (rc < 0) {
@@ -499,7 +497,7 @@ void pm8xxx_calib_ccadc(void)
 
 		result_gain += result;
 	}
-	result_gain = result_gain / SAMPLE_COUNT;
+	result_gain = result_gain / sample_count;
 
 	/*
 	 * result_offset includes INTRINSIC OFFSET
@@ -524,29 +522,24 @@ bail:
 calibration_unlock:
 	mutex_unlock(&the_chip->calib_mutex);
 }
+
+static void pm8xxx_calib_ccadc_quick(void)
+{
+	__pm8xxx_calib_ccadc(2);
+}
+
+void pm8xxx_calib_ccadc(void)
+{
+	__pm8xxx_calib_ccadc(SAMPLE_COUNT);
+}
 EXPORT_SYMBOL(pm8xxx_calib_ccadc);
 
 static void calibrate_ccadc_work(struct work_struct *work)
 {
-//zte jiangfeng add
-	int rc;
-	unsigned long current_time_sec;
-//zte jiangfeng add, end
-	
 	struct pm8xxx_ccadc_chip *chip = container_of(work,
 			struct pm8xxx_ccadc_chip, calib_ccadc_work.work);
-	
-	wake_lock(&chip->ccadc_cali_wake_lock);	//zte jiangfeng add
-	pm8xxx_calib_ccadc();
 
-//zte jiangfeng add	
-	printk("%s\n", __func__);		//zte jiangfeng
-	rc = get_current_time(&current_time_sec);	
-	chip->last_calib_time	=	current_time_sec;
-	chip->last_calib_temp	=	chip->zte_temp_temperature;
-	wake_unlock(&chip->ccadc_cali_wake_lock);
-//zte jiangfeng add, end
-	
+	pm8xxx_calib_ccadc();
 	schedule_delayed_work(&chip->calib_ccadc_work,
 			round_jiffies_relative(msecs_to_jiffies
 			(chip->calib_delay_ms)));
@@ -757,8 +750,8 @@ static int __devinit pm8xxx_ccadc_probe(struct platform_device *pdev)
 	chip->r_sense_uohm = pdata->r_sense_uohm;
 	chip->calib_delay_ms = pdata->calib_delay_ms;
 	chip->batt_temp_channel = pdata->ccadc_cdata.batt_temp_channel;
+	chip->periodic_wakeup = pdata->periodic_wakeup;
 	mutex_init(&chip->calib_mutex);
-	wake_lock_init(&chip->ccadc_cali_wake_lock, WAKE_LOCK_SUSPEND, "pm8921_ccadc_cali");
 
 	calib_ccadc_read_offset_and_gain(chip,
 					&chip->ccadc_gain_uv,
@@ -799,18 +792,21 @@ static int __devexit pm8xxx_ccadc_remove(struct platform_device *pdev)
 
 static int pm8xxx_ccadc_suspend(struct device *dev)
 {
-	if(the_chip)
-		cancel_delayed_work_sync(&the_chip->calib_ccadc_work);
+	struct pm8xxx_ccadc_chip *chip = dev_get_drvdata(dev);
+
+	cancel_delayed_work_sync(&chip->calib_ccadc_work);
+
 	return 0;
 }
 
 #define CCADC_CALIB_TEMP_THRESH 20
 static int pm8xxx_ccadc_resume(struct device *dev)
 {
-	int rc, batt_temp, delta_temp;
+  int rc, delta_temp;
+	int batt_temp = 0;
 	unsigned long current_time_sec;
 	unsigned long time_since_last_calib;
-	static int zte_first_time	=	1;	//zte jiangfeng add
+
 	rc = get_batt_temp(the_chip, &batt_temp);
 	if (rc) {
 		pr_err("unable to get batt_temp: %d\n", rc);
@@ -821,33 +817,30 @@ static int pm8xxx_ccadc_resume(struct device *dev)
 		pr_err("unable to get current time: %d\n", rc);
 		return 0;
 	}
+
+	if (the_chip->periodic_wakeup) {
+		pm8xxx_calib_ccadc_quick();
+		return 0;
+	}
+
 	if (current_time_sec > the_chip->last_calib_time) {
 		time_since_last_calib = current_time_sec -
 					the_chip->last_calib_time;
 		delta_temp = abs(batt_temp - the_chip->last_calib_temp);
-		//zte jiangfeng add
-		if(zte_first_time	==	1)
-			delta_temp	=	0;
-		zte_first_time	=	0;
-		//zte jiangfeng add, end
 		pr_debug("time since last calib: %lu, delta_temp = %d\n",
 					time_since_last_calib, delta_temp);
-#if 0
 		if (time_since_last_calib >= the_chip->calib_delay_ms/1000
 				|| delta_temp > CCADC_CALIB_TEMP_THRESH) {
 			the_chip->last_calib_time = current_time_sec;
 			the_chip->last_calib_temp = batt_temp;
-			pm8xxx_calib_ccadc();
-#else
-		if (time_since_last_calib >= the_chip->calib_delay_ms/1000){
-				//zte jiangfeng
-			printk("%s, reschedule calib ccadc work, time since last %ld, batt_temp %d, last_calib_temp %d\n", __func__,time_since_last_calib, batt_temp, the_chip->last_calib_temp);
-			schedule_delayed_work(&the_chip->calib_ccadc_work,HZ);
-			the_chip->zte_temp_temperature = batt_temp;
-#endif
-			//zte jiangfeng,end
+			schedule_delayed_work(&the_chip->calib_ccadc_work, 0);
+		} else {
+			schedule_delayed_work(&the_chip->calib_ccadc_work,
+				msecs_to_jiffies(the_chip->calib_delay_ms -
+					(time_since_last_calib * 1000)));
 		}
 	}
+
 	return 0;
 }
 

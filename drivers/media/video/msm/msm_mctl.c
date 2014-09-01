@@ -21,6 +21,7 @@
 #include <linux/proc_fs.h>
 #include <linux/vmalloc.h>
 #include <linux/wakelock.h>
+#include <linux/avtimer.h>
 
 #include <media/v4l2-dev.h>
 #include <media/v4l2-ioctl.h>
@@ -47,18 +48,8 @@
 #define D(fmt, args...) do {} while (0)
 #endif
 
-#ifdef CONFIG_OV8825
-extern struct otp_struct current_wb_otp;
-extern struct otp_struct current_lenc_otp;
-#endif
-#ifdef CONFIG_OV8835
-extern struct otp_struct current_ov8835_otp;
-#endif
 #define MSM_V4L2_SWFI_LATENCY 3
 /* VFE required buffer number for streaming */
-extern int msm_flash_mode_ctrl(struct msm_camera_sensor_info *sdata,
-	int flash_mode);
-
 static struct msm_isp_color_fmt msm_isp_formats[] = {
 	{
 	.name	   = "NV12YUV",
@@ -182,90 +173,6 @@ static struct msm_isp_color_fmt msm_isp_formats[] = {
 	},
 };
 
-static int msm_get_sensor_otp(struct msm_cam_media_controller *mctl,
-				void __user *arg)
-{
-	int rc = 0;
-#ifdef CONFIG_OV8825	
-	struct msm_camsensor_info otpinfo;
-
-       pr_err("%s: e\n", __func__);
-	if (copy_from_user(&otpinfo,
-			arg,
-			sizeof(struct msm_camsensor_info))) {
-		ERR_COPY_FROM_USER();
-		return -EFAULT;
-	}
-	
-	pr_err("%s:  module_integrator_id %x\n", __func__, current_wb_otp.module_integrator_id);
-	if(current_wb_otp.module_integrator_id==0x02){
-	//truly
-		memcpy(&otpinfo.name[0], "ov8825_truly", MAX_SENSOR_NAME);
-	}else if(current_wb_otp.module_integrator_id==0x31){
-	//mcnex
-		memcpy(&otpinfo.name[0], "ov8825_mcnex", MAX_SENSOR_NAME);
-	}else{
-	//qtech
-		memcpy(&otpinfo.name[0], "ov8825_qtech", MAX_SENSOR_NAME);
-	}	
-	
-	pr_err("%s: otp name %s\n", __func__, otpinfo.name);
-	/* copy back to user space */
-	if (copy_to_user((void *)arg,
-				&otpinfo,
-				sizeof(struct msm_camsensor_info))) {
-		ERR_COPY_TO_USER();
-		rc = -EFAULT;
-	}
-
-	 pr_err("%s: x\n", __func__);
-#endif
-
-#ifdef CONFIG_OV8835	
-	struct msm_camsensor_info otpinfo;
-
-       pr_err("%s: E \n", __func__);
-	if (copy_from_user(&otpinfo,
-			arg,
-			sizeof(struct msm_camsensor_info))) {
-		ERR_COPY_FROM_USER();
-		return -EFAULT;
-	}
-	
-	if(current_ov8835_otp.module_integrator_id==0x01){
-	//sunny
-		memcpy(&otpinfo.name[0], "ov8835_sunny", MAX_SENSOR_NAME);
-	}else if(current_ov8835_otp.module_integrator_id==0x02){
-	//truly
-		memcpy(&otpinfo.name[0], "ov8835_truly", MAX_SENSOR_NAME);
-	}else if(current_ov8835_otp.module_integrator_id==0x06){
-	//qtech
-		memcpy(&otpinfo.name[0], "ov8835_qtech", MAX_SENSOR_NAME);
-	}else if(current_ov8835_otp.module_integrator_id==0x15){
-	//liteon
-		memcpy(&otpinfo.name[0], "ov8835_liteon", MAX_SENSOR_NAME);
-	}else if(current_ov8835_otp.module_integrator_id==0x31){
-	//mcnex
-		memcpy(&otpinfo.name[0], "ov8835_truly", MAX_SENSOR_NAME);
-	}	
-	if(otpinfo.name){
-		pr_err("%s: otp name %s\n", __func__, otpinfo.name);
-	}
-	
-	/* copy back to user space */
-	if (copy_to_user((void *)arg,
-				&otpinfo,
-				sizeof(struct msm_camsensor_info))) {
-		ERR_COPY_TO_USER();
-		rc = -EFAULT;
-	}
-
-	 pr_err("%s: x\n", __func__);
-#endif
-
-
-	return rc;
-}
 static int msm_get_sensor_info(
 	struct msm_cam_media_controller *mctl,
 	void __user *arg)
@@ -282,7 +189,7 @@ static int msm_get_sensor_info(
 	}
 
 	sdata = mctl->sdata;
-	pr_err("%s: sensor_name %s\n", __func__, sdata->sensor_name);
+	D("%s: sensor_name %s\n", __func__, sdata->sensor_name);
 
 	memcpy(&info.name[0], sdata->sensor_name, MAX_SENSOR_NAME);
 	info.flash_enabled = sdata->flash_data->flash_type !=
@@ -336,6 +243,34 @@ static uint8_t msm_sensor_state_check(
 	return 0;
 }
 
+static int msm_mctl_add_intf_to_mctl_map(
+	struct msm_cam_media_controller *p_mctl,
+	struct intf_mctl_mapping_cfg *intf_map)
+{
+
+	int i;
+	int rc = 0;
+	uint32_t mctl_handle;
+
+	mctl_handle = msm_cam_find_handle_from_mctl_ptr(p_mctl);
+	if (mctl_handle == 0) {
+		pr_err("%s Error in finding handle from mctl_ptr, rc = %d",
+			__func__, rc);
+		return -EFAULT;
+	}
+	for (i = 0; i < intf_map->num_entries; i++) {
+		rc = msm_cam_server_config_interface_map(
+			intf_map->image_modes[i], mctl_handle,
+			intf_map->vnode_id, intf_map->is_bayer_sensor);
+		if (rc < 0) {
+				pr_err("%s Error in INTF MAPPING rc = %d",
+					__func__, rc);
+				return -EINVAL;
+		}
+	}
+	return rc;
+}
+
 /* called by the server or the config nodes to handle user space
 	commands*/
 static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
@@ -347,7 +282,7 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		pr_err("%s: param is NULL", __func__);
 		return -EINVAL;
 	}
-	CDBG("%s:%d: cmd %d\n", __func__, __LINE__, cmd);
+	D("%s:%d: cmd %d\n", __func__, __LINE__, cmd);
 
 	/* ... call sensor, ISPIF or VEF subdev*/
 	switch (cmd) {
@@ -356,11 +291,6 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			rc = msm_get_sensor_info(p_mctl, argp);
 			break;
 
-	case MSM_CAM_IOCTL_GET_SENSOR_OTP:
-		pr_err("MSM_CAM_IOCTL_GET_SENSOR_OTP %s:%d \n", __func__, __LINE__);
-			rc = msm_get_sensor_otp(p_mctl, argp);
-			break;
-			
 	case MSM_CAM_IOCTL_SENSOR_IO_CFG:
 		rc = v4l2_subdev_call(p_mctl->sensor_sdev,
 			core, ioctl, VIDIOC_MSM_SENSOR_CFG, argp);
@@ -467,32 +397,6 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		}
 		break;
 	}
-	
-	case MSM_CAM_IOCTL_ACTUATOR_IO_CFG_MACRO: {
-		struct msm_actuator_cfg_data act_data;
-		if (p_mctl->act_sdev) {
-			rc = v4l2_subdev_call(p_mctl->act_sdev,
-				core, ioctl, VIDIOC_MSM_ACTUATOR_CFG, argp);
-		} else {
-			rc = copy_from_user(
-				&act_data,
-				(void *)argp,
-				sizeof(struct msm_actuator_cfg_data));
-			if (rc != 0) {
-				rc = -EFAULT;
-				break;
-			}
-			act_data.is_af_supported = 0;
-			rc = copy_to_user((void *)argp,
-					 &act_data,
-					 sizeof(struct msm_actuator_cfg_data));
-			if (rc != 0) {
-				rc = -EFAULT;
-				break;
-			}
-		}
-		break;
-	}
 
 	case MSM_CAM_IOCTL_EEPROM_IO_CFG: {
 		struct msm_eeprom_cfg_data eeprom_data;
@@ -539,25 +443,21 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			ERR_COPY_FROM_USER();
 			rc = -EFAULT;
 		} else {
-	pr_err("%s \n",__func__);			
 			if (msm_sensor_state_check(p_mctl))
 				rc = msm_flash_ctrl(p_mctl->sdata, &flash_info);
 		}
 		break;
 	}
-   #if defined CONFIG_LM3642 ||defined CONFIG_ADP1650
-	case MSM_CAM_IOCTL_FLASH_MODE_CTRL: {
-		uint32_t led_mode;
-		if (copy_from_user(&led_mode, (void __user *)arg, sizeof(led_mode))) {
+	case MSM_CAM_IOCTL_INTF_MCTL_MAPPING_CFG: {
+		struct intf_mctl_mapping_cfg intf_map;
+		if (copy_from_user(&intf_map, argp, sizeof(intf_map))) {
 			ERR_COPY_FROM_USER();
 			rc = -EFAULT;
-		} else	
-			rc = msm_flash_mode_ctrl(p_mctl->sdata, led_mode);
-	pr_err("%s led_mode=%d \n",__func__,led_mode);			
+		} else {
+			rc = msm_mctl_add_intf_to_mctl_map(p_mctl, &intf_map);
+		}
 		break;
 	}
-   #endif
-	
 	case MSM_CAM_IOCTL_PICT_PP:
 		rc = msm_mctl_set_pp_key(p_mctl, (void __user *)arg);
 		break;
@@ -634,11 +534,27 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		}
 		break;
 
+	case MSM_CAM_IOCTL_AXI_LOW_POWER_MODE:
+		if (p_mctl->axi_sdev) {
+			v4l2_set_subdev_hostdata(p_mctl->axi_sdev, p_mctl);
+			rc = v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
+				VIDIOC_MSM_AXI_LOW_POWER_MODE,
+				(void __user *)arg);
+		} else {
+			rc = 0;
+		}
+		break;
+
 	default:
-		/* ISP config*/
-		D("%s:%d: go to default. Calling msm_isp_config\n",
-			__func__, __LINE__);
-		rc = p_mctl->isp_config(p_mctl, cmd, arg);
+		if(p_mctl && p_mctl->isp_config) {
+			/* ISP config*/
+			D("%s:%d: go to default. Calling msm_isp_config\n",
+				__func__, __LINE__);
+			rc = p_mctl->isp_config(p_mctl, cmd, arg);
+		} else {
+			rc = -EINVAL;
+			pr_err("%s: media controller is null\n", __func__);
+		}
 		break;
 	}
 	D("%s: !!! cmd = %d, rc = %d\n",
@@ -650,17 +566,18 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 				 const char *const apps_id)
 {
 	int rc = 0;
-	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
-	struct msm_camera_sensor_info *sinfo =
-		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	struct msm_sensor_ctrl_t *s_ctrl;
+	struct msm_camera_sensor_info *sinfo;
+	struct msm_camera_device_platform_data *camdev;
 	uint8_t csid_core;
 	D("%s\n", __func__);
 	if (!p_mctl) {
 		pr_err("%s: param is NULL", __func__);
 		return -EINVAL;
 	}
-
+	s_ctrl = get_sctrl(p_mctl->sensor_sdev);
+	sinfo = (struct msm_camera_sensor_info *) s_ctrl->sensordata;
+	camdev = sinfo->pdata;
 	mutex_lock(&p_mctl->lock);
 	/* open sub devices - once only*/
 	if (!p_mctl->opencnt) {
@@ -731,48 +648,56 @@ static void msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
 	struct msm_camera_sensor_info *sinfo =
 		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
-	v4l2_subdev_call(p_mctl->sensor_sdev, core, ioctl,
-		VIDIOC_MSM_SENSOR_RELEASE, NULL);
+	mutex_lock(&p_mctl->lock);
+	if (p_mctl->opencnt) {
+		v4l2_subdev_call(p_mctl->sensor_sdev, core, ioctl,
+			VIDIOC_MSM_SENSOR_RELEASE, NULL);
 
-	if (p_mctl->csic_sdev) {
-		v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
-			VIDIOC_MSM_CSIC_RELEASE, NULL);
+		if (p_mctl->csic_sdev) {
+			v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
+				VIDIOC_MSM_CSIC_RELEASE, NULL);
+		}
+
+		if (p_mctl->vpe_sdev) {
+			v4l2_subdev_call(p_mctl->vpe_sdev, core, ioctl,
+				VIDIOC_MSM_VPE_RELEASE, NULL);
+		}
+
+		if (p_mctl->axi_sdev) {
+			v4l2_set_subdev_hostdata(p_mctl->axi_sdev, p_mctl);
+			v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
+				VIDIOC_MSM_AXI_RELEASE, NULL);
+		}
+
+		if (p_mctl->csiphy_sdev) {
+			v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
+				VIDIOC_MSM_CSIPHY_RELEASE,
+				sinfo->sensor_platform_info->csi_lane_params);
+		}
+
+		if (p_mctl->csid_sdev) {
+			v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
+				VIDIOC_MSM_CSID_RELEASE, NULL);
+		}
+
+		if (p_mctl->act_sdev) {
+			v4l2_subdev_call(p_mctl->act_sdev, core, s_power, 0);
+			p_mctl->act_sdev = NULL;
+		}
+
+		v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 0);
+
+		v4l2_subdev_call(p_mctl->ispif_sdev,
+				core, ioctl, VIDIOC_MSM_ISPIF_REL, NULL);
+
+		pm_qos_update_request(&p_mctl->pm_qos_req_list,
+					PM_QOS_DEFAULT_VALUE);
+		pm_qos_remove_request(&p_mctl->pm_qos_req_list);
+
+		p_mctl->opencnt--;
+		wake_unlock(&p_mctl->wake_lock);
 	}
-
-	if (p_mctl->vpe_sdev) {
-		v4l2_subdev_call(p_mctl->vpe_sdev, core, ioctl,
-			VIDIOC_MSM_VPE_RELEASE, NULL);
-	}
-
-	if (p_mctl->axi_sdev) {
-		v4l2_set_subdev_hostdata(p_mctl->axi_sdev, p_mctl);
-		v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
-			VIDIOC_MSM_AXI_RELEASE, NULL);
-	}
-
-	if (p_mctl->csid_sdev) {
-		v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
-			VIDIOC_MSM_CSID_RELEASE, NULL);
-	}
-
-	if (p_mctl->csiphy_sdev) {
-		v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
-			VIDIOC_MSM_CSIPHY_RELEASE,
-			sinfo->sensor_platform_info->csi_lane_params);
-	}
-
-	if (p_mctl->act_sdev) {
-		v4l2_subdev_call(p_mctl->act_sdev, core, s_power, 0);
-		p_mctl->act_sdev = NULL;
-	}
-
-	v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 0);
-
-	pm_qos_update_request(&p_mctl->pm_qos_req_list,
-				PM_QOS_DEFAULT_VALUE);
-	pm_qos_remove_request(&p_mctl->pm_qos_req_list);
-
-	wake_unlock(&p_mctl->wake_lock);
+	mutex_unlock(&p_mctl->lock);
 }
 
 int msm_mctl_init_user_formats(struct msm_cam_v4l2_device *pcam)
@@ -879,8 +804,10 @@ int msm_mctl_init(struct msm_cam_v4l2_device *pcam)
 	v4l2_set_subdev_hostdata(pcam->sensor_sdev, pmctl);
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	pmctl->client = msm_ion_client_create(-1, "camera");
-	kref_init(&pmctl->refcount);
+	if (!pmctl->client) {
+		pmctl->client = msm_ion_client_create(-1, "camera");
+		kref_init(&pmctl->refcount);
+	}
 #endif
 
 	return 0;
@@ -948,6 +875,10 @@ static int msm_mctl_dev_open(struct file *f)
 	pcam_inst->pcam = pcam;
 	mutex_init(&pcam_inst->inst_lock);
 	pcam->mctl_node.dev_inst[i] = pcam_inst;
+
+	pcam_inst->avtimerOn = 0;
+	pcam_inst->p_avtimer_msw = NULL;
+	pcam_inst->p_avtimer_lsw = NULL;
 
 	D("%s pcam_inst %p my_index = %d\n", __func__,
 		pcam_inst, pcam_inst->my_index);
@@ -1049,6 +980,15 @@ static int msm_mctl_dev_close(struct file *f)
 	pcam_inst->streamon = 0;
 	pcam->mctl_node.use_count--;
 	pcam->mctl_node.dev_inst_map[pcam_inst->image_mode] = NULL;
+
+	if(pcam_inst->avtimerOn){
+	    iounmap(pcam_inst->p_avtimer_lsw);
+	    iounmap(pcam_inst->p_avtimer_msw);
+	    //Turn OFF DSP/Enable power collapse
+	    avcs_core_disable_power_collapse(0);
+	    pcam_inst->avtimerOn = 0;
+	}
+
 	if (pcam_inst->vbqueue_initialized)
 		vb2_queue_release(&pcam_inst->vid_bufq);
 	D("%s Closing down instance %p ", __func__, pcam_inst);
@@ -1153,11 +1093,21 @@ static int msm_mctl_v4l2_s_ctrl(struct file *f, void *pctx,
 					__func__, pcam_inst);
 			rc = -EFAULT;
 		}
-		D("%s inst %p got plane info: num_planes = %d,"
+		D("%s inst %p got plane info: num_planes = %d," \
 				"plane size = %ld %ld ", __func__, pcam_inst,
 				pcam_inst->plane_info.num_planes,
 				pcam_inst->plane_info.plane[0].size,
 				pcam_inst->plane_info.plane[1].size);
+	} else if (ctrl->id == MSM_V4L2_PID_AVTIMER){
+		pcam_inst->avtimerOn = ctrl->value;
+		D("%s: mmap_inst=(0x%p, %d) AVTimer=%d\n",
+			 __func__, pcam_inst, pcam_inst->my_index, ctrl->value);
+		/*Kernel drivers to access AVTimer*/
+		avcs_core_open();
+		/*Turn ON DSP/Disable power collapse*/
+		avcs_core_disable_power_collapse(1);
+		pcam_inst->p_avtimer_lsw = ioremap(AVTIMER_LSW_PHY_ADDR, 4);
+		pcam_inst->p_avtimer_msw = ioremap(AVTIMER_MSW_PHY_ADDR, 4);
 	} else
 		pr_err("%s Unsupported S_CTRL Value ", __func__);
 
@@ -1183,6 +1133,7 @@ static int msm_mctl_v4l2_reqbufs(struct file *f, void *pctx,
 		pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 		if (pmctl == NULL) {
 			pr_err("%s Invalid mctl ptr", __func__);
+			mutex_unlock(&pcam_inst->inst_lock);
 			return -EINVAL;
 		}
 		pmctl->mctl_vbqueue_init(pcam_inst, &pcam_inst->vid_bufq,
@@ -1623,8 +1574,8 @@ static int msm_mctl_vidbuf_get_path(u32 extendedmode)
 		return OUTPUT_TYPE_R;
 	case MSM_V4L2_EXT_CAPTURE_MODE_RDI1:
 		return OUTPUT_TYPE_R1;
-	case MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT:
-	case MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW:
+	case MSM_V4L2_EXT_CAPTURE_MODE_RDI2:
+		return OUTPUT_TYPE_R2;
 	default:
 		return OUTPUT_TYPE_P;
 	}
@@ -1676,7 +1627,7 @@ static int msm_mctl_v4l2_subscribe_event(struct v4l2_fh *fh,
 
 	if (sub->type == V4L2_EVENT_ALL)
 		sub->type = V4L2_EVENT_PRIVATE_START+MSM_CAM_APP_NOTIFY_EVENT;
-	rc = v4l2_event_subscribe(fh, sub, 30);
+	rc = v4l2_event_subscribe(fh, sub, 100);
 	if (rc < 0)
 		pr_err("%s: failed for evtType = 0x%x, rc = %d\n",
 						__func__, sub->type, rc);

@@ -1069,7 +1069,6 @@ static void composite_setup_complete(struct usb_ep *ep, struct usb_request *req)
  * housekeeping for the gadget function we're implementing.  Most of
  * the work is in config and function specific setup.
  */
-int MAC_switch(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl);
 static int
 composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 {
@@ -1320,12 +1319,6 @@ unknown:
 
 		if (f && f->setup)
 			value = f->setup(f, ctrl);
-                /*add for MAC*/
-                else if (ctrl->bRequestType == 0xC0 && ctrl->bRequest == 0xA1) {
-                        printk(KERN_ERR"xbl:bRequestType == 0xC0 && ctrl->bRequest == 0xA1,%s,%d \n",__FUNCTION__,__LINE__);
-                        value = MAC_switch(gadget,ctrl);
-                }
-                /*end*/
 		else {
 			struct usb_configuration	*c;
 
@@ -1371,6 +1364,10 @@ static void composite_disconnect(struct usb_gadget *gadget)
 		reset_config(cdev);
 	if (composite->disconnect)
 		composite->disconnect(cdev);
+	if (cdev->delayed_status != 0) {
+		INFO(cdev, "delayed status mismatch..resetting\n");
+		cdev->delayed_status = 0;
+	}
 	spin_unlock_irqrestore(&cdev->lock, flags);
 }
 

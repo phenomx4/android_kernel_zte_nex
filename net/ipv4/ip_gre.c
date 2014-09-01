@@ -119,10 +119,6 @@
 
    Alexey Kuznetsov.
  */
- /*===========================================================================
-when        who            why                            comment tag
-2012-01-06   lichuan        add for open CONFIG_NET_IPGRE_DEMUX, to make compile succ        KERNEL_LC_20130106
-=============================================================================*/
 
 static struct rtnl_link_ops ipgre_link_ops __read_mostly;
 static int ipgre_tunnel_init(struct net_device *dev);
@@ -740,7 +736,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
 		}
 #if IS_ENABLED(CONFIG_IPV6)
 		else if (skb->protocol == htons(ETH_P_IPV6)) {
-//			struct neighbour *neigh = dst_get_neighbour(skb_dst(skb));     //KERNEL_LC_20130106
+			struct neighbour *neigh = dst_get_neighbour(skb_dst(skb));
 			const struct in6_addr *addr6;
 			struct neighbour *neigh;
 			bool do_tx_error_icmp;

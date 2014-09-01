@@ -18,21 +18,30 @@
 #include <linux/pmic8058-pwm.h>
 #include <linux/hrtimer.h>
 #include <linux/export.h>
+#include <linux/timer.h>
+#include <linux/workqueue.h>
 #include <mach/pmic.h>
 #include <mach/camera.h>
 #include <mach/gpio.h>
 #include "msm_camera_i2c.h"
 
-//struct i2c_client *sx150x_client;
+struct flash_work {
+	struct work_struct my_work;
+	int    x;
+};
+struct flash_work *work;
+static struct timer_list flash_timer;
+static int timer_state;
+static struct workqueue_struct *flash_wq;
+struct i2c_client *sx150x_client;
 struct timer_list timer_flash;
 static struct msm_camera_sensor_info *sensor_data;
-uint32_t current_flash_led_mode = 0;//add for auto_flash by yanwei
+static struct msm_camera_i2c_client i2c_client;
 enum msm_cam_flash_stat{
 	MSM_CAM_FLASH_OFF,
 	MSM_CAM_FLASH_ON,
 };
 
-#if 0
 static struct i2c_client *sc628a_client;
 
 static const struct i2c_device_id sc628a_i2c_id[] = {
@@ -114,7 +123,7 @@ static struct i2c_driver tps61310_i2c_driver = {
 		.name = "tps61310",
 	},
 };
-#endif
+
 static int config_flash_gpio_table(enum msm_cam_flash_stat stat,
 			struct msm_camera_sensor_strobe_flash_data *sfdata)
 {
@@ -150,7 +159,7 @@ static int config_flash_gpio_table(enum msm_cam_flash_stat stat,
 	}
 	return rc;
 }
-#if 0
+
 int msm_camera_flash_current_driver(
 	struct msm_camera_sensor_flash_current_driver *current_driver,
 	unsigned led_state)
@@ -278,6 +287,23 @@ int msm_camera_flash_led(
 	return rc;
 }
 
+static void flash_wq_function(struct work_struct *work)
+{
+	if (tps61310_client) {
+		i2c_client.client = tps61310_client;
+		i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
+		msm_camera_i2c_write(&i2c_client, 0x01,
+				0x46, MSM_CAMERA_I2C_BYTE_DATA);
+	}
+	return;
+}
+
+void flash_timer_callback(unsigned long data)
+{
+	queue_work(flash_wq, (struct work_struct *)work );
+	mod_timer(&flash_timer, jiffies + msecs_to_jiffies(10000));
+}
+
 int msm_camera_flash_external(
 	struct msm_camera_sensor_flash_external *external,
 	unsigned led_state)
@@ -383,6 +409,11 @@ error:
 				sc628a_client = NULL;
 			}
 			if (tps61310_client) {
+				if (timer_state) {
+					del_timer(&flash_timer);
+					kfree((void *)work);
+					timer_state = 0;
+				}
 				i2c_del_driver(&tps61310_i2c_driver);
 				tps61310_client = NULL;
 			}
@@ -408,6 +439,11 @@ error:
 				i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
 				rc = msm_camera_i2c_write(&i2c_client, 0x01,
 					0x00, MSM_CAMERA_I2C_BYTE_DATA);
+				if (timer_state) {
+					del_timer(&flash_timer);
+					kfree((void *)work);
+					timer_state = 0;
+				}
 			}
 			gpio_set_value_cansleep(external->led_en, 0);
 			gpio_set_value_cansleep(external->led_flash_en, 0);
@@ -429,7 +465,13 @@ error:
 				i2c_client.client = tps61310_client;
 				i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
 				rc = msm_camera_i2c_write(&i2c_client, 0x01,
-					0x86, MSM_CAMERA_I2C_BYTE_DATA);
+					0x46, MSM_CAMERA_I2C_BYTE_DATA);
+				flash_wq = alloc_workqueue("my_queue",WQ_MEM_RECLAIM,1);
+				work = (struct flash_work *)kmalloc(sizeof(struct flash_work), GFP_KERNEL);
+				INIT_WORK( (struct work_struct *)work, flash_wq_function );
+				setup_timer(&flash_timer, flash_timer_callback, 0);
+				mod_timer(&flash_timer, jiffies + msecs_to_jiffies(10000));
+				timer_state = 1;
 			}
 		}
 		break;
@@ -551,80 +593,7 @@ int msm_camera_flash_pmic(
 
 	return rc;
 }
-#endif
 
-#if defined (CONFIG_OV5640)
-extern uint16_t ov5640_autoflashflag;
-#else
-uint16_t ov5640_autoflashflag=1;
-#endif
-
-int32_t msm_camera_flash_set_led_state(
-	struct msm_camera_sensor_flash_data *fdata, unsigned led_state)
-{
-	int32_t rc=0;
-       pr_err("%s led_state=%d current_flash_mode=%d autoflashflag=%d \n",
-	__func__,led_state,current_flash_led_mode,ov5640_autoflashflag);
-	switch (led_state) {
-		
-	case MSM_CAMERA_LED_RELEASE:
-	case MSM_CAMERA_LED_OFF:
-                #if defined CONFIG_LM3642 		
-			rc = lm3642_set_flash_and_torch_mode_off();
-		  #elif defined CONFIG_ADP1650
-			rc = ADP1650_disable();
-               #endif
-		break;
-
-	case MSM_CAMERA_LED_LOW:	
-		
-		#if defined CONFIG_ADP1650
-			rc = ADP1650_assistmode_enable();
-		#endif
-
-               if (current_flash_led_mode ==2){	
-	pr_err("1-1 current_flash_mode =%d,ov5640_autoflashflag=%d\n",current_flash_led_mode,ov5640_autoflashflag);
-               #if defined CONFIG_LM3642 		
-			rc = lm3642_set_torch_mode2();
-               #endif	
-		 }
-		else if ((current_flash_led_mode ==1) &&(ov5640_autoflashflag== 1))
-              {	
-	pr_err("1-2 current_flash_mode =%d,ov5640_autoflashflag=%d\n",current_flash_led_mode,ov5640_autoflashflag);
-		#if defined CONFIG_LM3642 		
-			rc = lm3642_set_torch_mode2();
-               #endif	
-		}
-		break;
-
-	case MSM_CAMERA_LED_HIGH:	
-		
-		#if defined CONFIG_ADP1650
-			rc = ADP1650_flashmode_enable();
-		 #endif
-		 
-               if (current_flash_led_mode ==2) {
-	pr_err("2-1 current_flash_mode =%d,ov5640_autoflashflag=%d\n",current_flash_led_mode,ov5640_autoflashflag);
-               #if defined CONFIG_LM3642 			   	
-			rc = lm3642_set_flash_mode();	
-               #endif			   				   
-              }else if ((current_flash_led_mode ==1) &&(ov5640_autoflashflag== 1))
-              {
-	pr_err("2-2 current_flash_mode =%d,ov5640_autoflashflag=%d\n",current_flash_led_mode,ov5640_autoflashflag);              
-               #if defined CONFIG_LM3642 			   	
-			rc = lm3642_set_flash_mode();	
-               #endif			   				   
-		}	
-		break;
-	
-	default:
-	rc = 0;
-	break;
-	}
-
-	return rc;
-}
-#if 0
 int32_t msm_camera_flash_set_led_state(
 	struct msm_camera_sensor_flash_data *fdata, unsigned led_state)
 {
@@ -670,7 +639,7 @@ int32_t msm_camera_flash_set_led_state(
 
 	return rc;
 }
-#endif
+
 static int msm_strobe_flash_xenon_charge(int32_t flash_charge,
 		int32_t charge_enable, uint32_t flash_recharge_duration)
 {
@@ -828,7 +797,6 @@ int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
 {
 	int rc = 0;
 	sensor_data = sdata;
-		CDBG("%s line=%d\n",__func__,__LINE__);	
 	switch (flash_info->flashtype) {
 	case LED_FLASH:
 		rc = msm_camera_flash_set_led_state(sdata->flash_data,
@@ -844,52 +812,3 @@ int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
 	}
 	return rc;
 }
-//msm_flash_mode_ctrl() add by yanwei
-int msm_flash_mode_ctrl(struct msm_camera_sensor_info *sdata,
-	int flash_mode)
-{
-	int rc = 0;
-	pr_err("%s flash_mode=%d \n",__func__,flash_mode);
-/*
-0  LED_MODE_OFF,
-1  LED_MODE_AUTO,
-2  LED_MODE_ON,
-3  LED_MODE_TORCH,
-*/
-	switch (flash_mode) {
-	case 0:
-	#if defined CONFIG_LM3642 		
-			rc = lm3642_set_flash_and_torch_mode_off();
-	#elif defined CONFIG_ADP1650
-			rc = ADP1650_disable();
-	#endif
-		 current_flash_led_mode = 0;	
-		break;
-		
-	case 1:
-		pr_err("LED_MODE_AUTO Flash MODE\n");
-		 current_flash_led_mode = 1;		
-		break;
-		
-	case 2:
-		 current_flash_led_mode = 2;		  
-		break;
-		
-	case 3:
-	{
-           #if defined CONFIG_LM3642 		
-		rc = lm3642_set_torch_mode2();
-	    #elif defined CONFIG_ADP1650
-			rc = ADP1650_assistmode_enable();
-           #endif
-	}
-		break;	
-		
-	default:
-  		pr_err("Invalid Flash MODE\n");
-		rc = -EINVAL;
-	}
-	pr_err(" adsfg %s current_flash_led_mode=%d \n",__func__,current_flash_led_mode);
-	return rc;
-}
-

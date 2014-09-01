@@ -130,7 +130,6 @@ static void led_rpc_set_status(struct msm_rpc_client *client,
 
 }
 
-#if 0   //ZTE_XJB_PM_20121105 remove to class.
 static ssize_t led_blink_show(struct device *dev,
 				struct device_attribute *attr,
 				char *buf)
@@ -187,7 +186,7 @@ static ssize_t led_blink_store(struct device *dev,
 
 	return size;
 }
-#endif
+
 static DEVICE_ATTR(blink, 0644, led_blink_show, led_blink_store);
 
 static void tricolor_led_set(struct led_classdev *led_cdev,

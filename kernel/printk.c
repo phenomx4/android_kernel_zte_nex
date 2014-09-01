@@ -48,18 +48,6 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
 
-#ifndef CONFIG_ZTE_PLATFORM
-#define CONFIG_ZTE_PLATFORM 1
-#endif
-
-#ifdef CONFIG_ZTE_PLATFORM
-#include <linux/rtc.h>
-
-/*20100726 ZTE_LYJ_PRINTK_001*/
-static int printk_proc_info = 1;
-module_param_named(printk_proc_info, printk_proc_info, int, S_IRUGO | S_IWUSR);
-#endif
-
 /*
  * Architectures can override it:
  */
@@ -901,14 +889,6 @@ static inline void printk_delay(void)
 	}
 }
 
-#ifdef CONFIG_ZTE_PLATFORM
-				char tbuf[50], *tp;
-				unsigned tlen;
-				struct timespec ts;
-				struct rtc_time tm;
-				char proc_info_buf[50], *tp;
-				unsigned info_len;
-#endif
 asmlinkage int vprintk(const char *fmt, va_list args)
 {
 	int printed_len = 0;
@@ -959,6 +939,9 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 
 
 	p = printk_buf;
+#ifdef CONFIG_LGE_CRASH_HANDLER
+	store_crash_log(p);
+#endif
 
 	/* Read log level and handle special printk prefix */
 	plen = log_prefix(p, &current_log_level, &special);
@@ -1004,46 +987,21 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 
 			if (printk_time) {
 				/* Add the current time stamp */
-#ifndef CONFIG_ZTE_PLATFORM
 				char tbuf[50], *tp;
 				unsigned tlen;
 				unsigned long long t;
 				unsigned long nanosec_rem;
-#else
 
-				ts = current_kernel_time();
-				rtc_time_to_tm(ts.tv_sec, &tm);
-				tlen = sprintf(tbuf, "[%02d-%02d %02d:%02d:%02d.%03d] ",	/* chenchongbao.20111218 chang %06d => %03d */
-					tm.tm_mon + 1, tm.tm_mday,
-					tm.tm_hour, tm.tm_min, tm.tm_sec, (int)(ts.tv_nsec / NSEC_PER_MSEC));	/* chenchongbao.20111228 NSEC_PER_USEC=> NSEC_PER_MSEC*/
-#endif
-#ifndef CONFIG_ZTE_PLATFORM
 				t = cpu_clock(printk_cpu);
 				nanosec_rem = do_div(t, 1000000000);
 				tlen = sprintf(tbuf, "[%5lu.%06lu] ",
 						(unsigned long) t,
 						nanosec_rem / 1000);
-#endif
+
 				for (tp = tbuf; tp < tbuf + tlen; tp++)
 					emit_log_char(*tp);
 				printed_len += tlen;
 			}
-#ifdef CONFIG_ZTE_PLATFORM
-			if (printk_proc_info) {
-				if (!in_interrupt()){
-				    /* Follow the token with the time */
-
-				    info_len = sprintf(proc_info_buf, "[%u][%d: %s]",
-						smp_processor_id(),
-						current->pid,
-						current->comm);
-
-				    for (tp = proc_info_buf; tp < proc_info_buf + info_len; tp++)
-					    emit_log_char(*tp);
-				    printed_len += info_len;
-				}
-			}
-#endif
 
 			if (!*p)
 				break;
@@ -1205,7 +1163,7 @@ int update_console_cmdline(char *name, int idx, char *name_new, int idx_new, cha
 	return -1;
 }
 
-bool console_suspend_enabled = 0;	//zte_pm disable console suspend.
+bool console_suspend_enabled = 1;
 EXPORT_SYMBOL(console_suspend_enabled);
 
 static int __init console_suspend_disable(char *str)
@@ -1269,13 +1227,13 @@ static int __cpuinit console_cpu_notify(struct notifier_block *self,
 	unsigned long action, void *hcpu)
 {
 	switch (action) {
-	case CPU_ONLINE:
 	case CPU_DEAD:
 	case CPU_DOWN_FAILED:
 	case CPU_UP_CANCELED:
 		console_lock();
 		console_unlock();
 		break;
+	case CPU_ONLINE:
 	case CPU_DYING:
 		/* invoked with preemption disabled, so defer */
 		if (!console_trylock())
@@ -1430,8 +1388,6 @@ again:
 	raw_spin_lock(&logbuf_lock);
 	if (con_start != log_end)
 		retry = 1;
-	else
-                retry = 0;//zte:this is a kernel bug
 	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
 
 	if (retry && console_trylock())
@@ -1755,7 +1711,6 @@ static int __init printk_late_init(void)
 		}
 	}
 	hotcpu_notifier(console_cpu_notify, 0);
-	printk("zte log address __log_buf: 0x%x\n", (unsigned int)__log_buf);
 	return 0;
 }
 late_initcall(printk_late_init);

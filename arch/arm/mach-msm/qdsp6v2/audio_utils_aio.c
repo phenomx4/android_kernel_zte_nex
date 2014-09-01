@@ -719,7 +719,7 @@ static int audio_aio_ion_add(struct q6audio_aio *audio,
 		goto flag_error;
 	}
 
-	temp_ptr = ion_map_kernel(audio->client, handle, 0);
+	temp_ptr = ion_map_kernel(audio->client, handle);
 	if (IS_ERR_OR_NULL(temp_ptr)) {
 		pr_err("%s: could not get virtual address\n", __func__);
 		goto map_error;
@@ -1110,6 +1110,7 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case AUDIO_GET_STATS: {
 		struct msm_audio_stats stats;
+		memset(&stats, 0, sizeof(struct msm_audio_stats));
 		stats.byte_count = atomic_read(&audio->in_bytes);
 		stats.sample_count = atomic_read(&audio->in_samples);
 		if (copy_to_user((void *)arg, &stats, sizeof(stats)))

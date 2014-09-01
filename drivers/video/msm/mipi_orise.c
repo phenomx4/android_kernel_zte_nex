@@ -124,10 +124,8 @@ static int __devinit mipi_orise_lcd_probe(struct platform_device *pdev)
 
 		mipi  = &mfd->panel_info.mipi;
 
-		if (phy_settings != NULL) {
-			mipi->dsi_phy_db = &phy_settings;
-			mipi->dsi_phy_db_count = 1;
-		}
+		if (phy_settings != NULL)
+			mipi->dsi_phy_db = phy_settings;
 	}
 	return 0;
 }

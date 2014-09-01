@@ -31,13 +31,7 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 	{0x0, 0x0e, 0x30, 0xc0, 0x00, 0x40, 0x03, 0x62,
 	0x40, 0x07, 0x07,
 	0x00, 0x1a, 0x00, 0x00, 0x02, 0x00, 0x20, 0x00, 0x01 },
-	55,
 };
-
-static struct mipi_dsi_phy_ctrl *dsi_video_mode_phy_dbs[] = {
-	&dsi_video_mode_phy_db,
-};
-
 
 static int __init mipi_video_orise_720p_pt_init(void)
 {
@@ -89,9 +83,7 @@ static int __init mipi_video_orise_720p_pt_init(void)
 	pinfo.mipi.mdp_trigger = 0;
 	pinfo.mipi.dma_trigger = DSI_CMD_TRIGGER_SW;
 	pinfo.mipi.frame_rate = 55;
-	pinfo.mipi.dsi_phy_db = dsi_video_mode_phy_dbs;
-	pinfo.mipi.dsi_phy_db_count = ARRAY_SIZE(dsi_video_mode_phy_dbs);
-
+	pinfo.mipi.dsi_phy_db = &dsi_video_mode_phy_db;
 	pinfo.mipi.tx_eot_append = TRUE;
 	pinfo.mipi.esc_byte_ratio = 4;
 

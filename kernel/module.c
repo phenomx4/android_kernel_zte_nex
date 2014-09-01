@@ -62,16 +62,6 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/module.h>
 
-/*
- * Support for CONFIG_ZTE_KMOD_AUTH_SEC by ZTE_BOOT_JIA_20130609 jia.jia
- */
-#if defined(ZTE_FEATURE_TF_SECURITY_SYSTEM)
-#if defined(CONFIG_ZTE_KMOD_AUTH_SEC)
-int32_t verify_kmod_auth_sec(void __user *umod, unsigned long len);
-int32_t load_kmod_auth_sec(void __user **umod, unsigned long *len);
-#endif /* CONFIG_ZTE_KMOD_AUTH_SEC */
-#endif /* ZTE_FEATURE_TF_SECURITY_SYSTEM */
-
 #ifndef ARCH_SHF_SMALL
 #define ARCH_SHF_SMALL 0
 #endif
@@ -2882,22 +2872,6 @@ static struct module *load_module(void __user *umod,
 
 	pr_debug("load_module: umod=%p, len=%lu, uargs=%p\n",
 	       umod, len, uargs);
-/*
- * Support for CONFIG_ZTE_KMOD_AUTH_SEC by ZTE_BOOT_JIA_20130609 jia.jia
- */
-#if defined(ZTE_FEATURE_TF_SECURITY_SYSTEM)
-#if defined(CONFIG_ZTE_KMOD_AUTH_SEC)
-	err = verify_kmod_auth_sec(umod, len);
-	if (err) {
-		return ERR_PTR(err);
-	}
-
-	err = load_kmod_auth_sec(&umod, &len);
-	if (err) {
-		return ERR_PTR(err);
-	}
-#endif /* CONFIG_ZTE_KMOD_AUTH_SEC */
-#endif /* ZTE_FEATURE_TF_SECURITY_SYSTEM */
 
 	/* Copy in the blobs from userspace, check they are vaguely sane. */
 	err = copy_and_check(&info, umod, len, uargs);

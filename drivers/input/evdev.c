@@ -25,7 +25,6 @@
 #include <linux/device.h>
 #include <linux/wakelock.h>
 #include "input-compat.h"
-#include <linux/zte_hibernate.h>
 
 struct evdev {
 	int open;
@@ -91,13 +90,8 @@ static void evdev_pass_event(struct evdev_client *client,
 
 	if (event->type == EV_SYN && event->code == SYN_REPORT) {
 		client->packet_head = client->head;
-		if (client->use_wake_lock) {
-			if (is_in_hibernate()) {
-				wake_lock_timeout(&client->wake_lock, 5*HZ);
-			} else {
-				wake_lock(&client->wake_lock);
-			}
-		}
+		if (client->use_wake_lock)
+			wake_lock(&client->wake_lock);
 		kill_fasync(&client->fasync, SIGIO, POLL_IN);
 	}
 
@@ -1099,57 +1093,8 @@ static struct input_handler evdev_handler = {
 	.id_table	= evdev_ids,
 };
 
-static struct notifier_block hibernate_nb = {0};
-void release_all_wakelock(void)
-{
-	struct evdev *evdev;
-	int i = 0;
-	mutex_lock(&evdev_table_mutex);
-	for (i = 0; i < EVDEV_MINORS; i++) {
-		struct evdev_client *client;
-		evdev = evdev_table[i];
-		if (evdev) {
-			get_device(&evdev->dev);
-			spin_lock(&evdev->client_lock);
-			list_for_each_entry(client, &evdev->client_list, node) {
-				if (client->use_wake_lock) {
-					/* printk(KERN_ERR"rms:(%s:%d) client->name %s\n", */
-					/*        __FUNCTION__, __LINE__, */
-					/*        client->name); */
-					wake_unlock(&client->wake_lock);
-				}
-			}
-			spin_unlock(&evdev->client_lock);
-			put_device(&evdev->dev);
-		}
-	}
-	mutex_unlock(&evdev_table_mutex);
-}
-static int hibernate_notifier_callback(struct notifier_block *nb,
-				    unsigned long event, void *unused)
-{
-
-	//printk(KERN_ERR"rms(%s:%d) \n", __FUNCTION__, __LINE__);
-	if (event != ZTE_HIBERNATE_ON && event != ZTE_HIBERNATE_OFF) {
-		return NOTIFY_OK;
-	}
-	switch (event) {
-	case ZTE_HIBERNATE_ON:
-		release_all_wakelock();
-		break;
-	default:
-		break;
-	}
-	return 0;
-}
 static int __init evdev_init(void)
 {
-	hibernate_nb.notifier_call = hibernate_notifier_callback;
-	hibernate_nb.priority = 0;
-	if (register_hibernate_notifier(&hibernate_nb)) {
-		printk(KERN_ERR"rms(%s:%d) register_hibernate_notifier fail\n", __FUNCTION__, __LINE__);
-	}
-	
 	return input_register_handler(&evdev_handler);
 }
 

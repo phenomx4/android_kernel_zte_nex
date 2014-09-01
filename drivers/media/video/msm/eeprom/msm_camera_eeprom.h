@@ -66,7 +66,6 @@ struct msm_eeprom_ctrl_t {
 	uint16_t read_tbl_size;
 	struct msm_camera_eeprom_data_t *data_tbl;
 	uint16_t data_tbl_size;
-	struct msm_camera_eeprom_data_t *data_mod_info;
 };
 
 int32_t msm_camera_eeprom_get_data(struct msm_eeprom_ctrl_t *ectrl,
@@ -78,14 +77,6 @@ int32_t msm_eeprom_i2c_probe(struct i2c_client *client,
 long msm_eeprom_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg);
 
-#ifdef CONFIG_HI542_EEPROM
-int32_t msm_eeprom_i2c_probe_hi542(struct i2c_client *client,
-	const struct i2c_device_id *id);
-#endif
-#ifdef CONFIG_AR0542_EEPROM
-int32_t msm_eeprom_i2c_probe_ar0542(struct i2c_client *client,
-	const struct i2c_device_id *id);
-#endif
 #define VIDIOC_MSM_EEPROM_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 12, void __user *)
 #endif

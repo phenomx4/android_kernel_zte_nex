@@ -31,10 +31,6 @@
  */
 #define DEFAULT_NUM_REQS_TO_START_PACK 17
 
-//yeganlin,20130131,added for alloc memory for struct of scatterlist failure     
-#ifdef CONFIG_MMC_MSM_CARD_PRE_ALLOC_MEMORY_FOR_SG
-extern struct scatterlist *g_sg0, *g_sg1;//yeganlin
-#endif
 /*
  * Prepare a MMC request. This just filters out odd stuff.
  */
@@ -276,37 +272,15 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 			min(host->max_blk_count, host->max_req_size / 512));
 		blk_queue_max_segments(mq->queue, host->max_segs);
 		blk_queue_max_segment_size(mq->queue, host->max_seg_size);
-//yeganlin,20130131,added for alloc memory for struct of scatterlist failure    
-#ifdef CONFIG_MMC_MSM_CARD_PRE_ALLOC_MEMORY_FOR_SG
-             if(mmc_card_sd(card) && g_sg0 != NULL){
-                 pr_err("ygl mmc_init_queue()::%s:g_sg0 have alloc\n",mmc_hostname(host));
-                 mqrq_cur->sg = g_sg0;
-                 sg_init_table(g_sg0, host->max_segs);
-             }else{
-                 pr_err("ygl mmc_init_queue()::%s:g_sg0 have not alloc and alloc here\n",mmc_hostname(host));
-                 mqrq_cur->sg = mmc_alloc_sg(host->max_segs, &ret);
-    		    if (ret)
-        		goto cleanup_queue;
-             }
-            if(mmc_card_sd(card) && g_sg1 != NULL){
-                 pr_err("ygl mmc_init_queue()::%s:g_sg1 have alloc\n",mmc_hostname(host));
-                 mqrq_prev->sg = g_sg1;
-                 sg_init_table(g_sg1, host->max_segs);
-            }else{
-                 pr_err("ygl mmc_init_queue()::%s:g_sg1 have not alloc and alloc here\n",mmc_hostname(host));
-        	    mqrq_prev->sg = mmc_alloc_sg(host->max_segs, &ret);
-        	    if (ret)
-        		goto cleanup_queue;
-            }
-#else
+
 		mqrq_cur->sg = mmc_alloc_sg(host->max_segs, &ret);
 		if (ret)
 			goto cleanup_queue;
 
+
 		mqrq_prev->sg = mmc_alloc_sg(host->max_segs, &ret);
 		if (ret)
 			goto cleanup_queue;
-#endif
 	}
 
 	sema_init(&mq->thread_sem, 1);
@@ -363,32 +337,18 @@ void mmc_cleanup_queue(struct mmc_queue *mq)
 	kfree(mqrq_cur->bounce_sg);
 	mqrq_cur->bounce_sg = NULL;
 
-//yeganlin,20130131,added for alloc memory for struct of scatterlist failure    
-#ifdef CONFIG_MMC_MSM_CARD_PRE_ALLOC_MEMORY_FOR_SG
-      if(!mmc_card_sd(mq->card)) {
-          pr_err("ygl mmc_cleanup_queue()::%s: mqrq_cur->sg\n",mmc_hostname(mq->card->host));
-	    kfree(mqrq_cur->sg);
-	    mqrq_cur->sg = NULL;
-      }
-#else
 	kfree(mqrq_cur->sg);
 	mqrq_cur->sg = NULL;
-#endif
+
 	kfree(mqrq_cur->bounce_buf);
 	mqrq_cur->bounce_buf = NULL;
 
 	kfree(mqrq_prev->bounce_sg);
 	mqrq_prev->bounce_sg = NULL;
-#ifdef CONFIG_MMC_MSM_CARD_PRE_ALLOC_MEMORY_FOR_SG
-      if(!mmc_card_sd(mq->card)) {
-          pr_err("ygl mmc_cleanup_queue()::%s: free mqrq_prev->sg \n",mmc_hostname(mq->card->host));
-    	    kfree(mqrq_prev->sg);
-    	    mqrq_prev->sg = NULL;
-      }
-#else
-    	kfree(mqrq_prev->sg);
-    	mqrq_prev->sg = NULL;
-#endif      
+
+	kfree(mqrq_prev->sg);
+	mqrq_prev->sg = NULL;
+
 	kfree(mqrq_prev->bounce_buf);
 	mqrq_prev->bounce_buf = NULL;
 
@@ -404,10 +364,11 @@ EXPORT_SYMBOL(mmc_cleanup_queue);
  * complete any outstanding requests.  This ensures that we
  * won't suspend while a request is being processed.
  */
-void mmc_queue_suspend(struct mmc_queue *mq)
+int mmc_queue_suspend(struct mmc_queue *mq)
 {
 	struct request_queue *q = mq->queue;
 	unsigned long flags;
+	int rc = 0;
 
 	if (!(mq->flags & MMC_QUEUE_SUSPENDED)) {
 		mq->flags |= MMC_QUEUE_SUSPENDED;
@@ -416,8 +377,20 @@ void mmc_queue_suspend(struct mmc_queue *mq)
 		blk_stop_queue(q);
 		spin_unlock_irqrestore(q->queue_lock, flags);
 
-		down(&mq->thread_sem);
+		rc = down_trylock(&mq->thread_sem);
+		if (rc) {
+			/*
+			 * Failed to take the lock so better to abort the
+			 * suspend because mmcqd thread is processing requests.
+			 */
+			mq->flags &= ~MMC_QUEUE_SUSPENDED;
+			spin_lock_irqsave(q->queue_lock, flags);
+			blk_start_queue(q);
+			spin_unlock_irqrestore(q->queue_lock, flags);
+			rc = -EBUSY;
+		}
 	}
+	return rc;
 }
 
 /**

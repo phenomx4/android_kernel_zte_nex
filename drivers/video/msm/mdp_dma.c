@@ -32,7 +32,6 @@
 #include "mdp.h"
 #include "msm_fb.h"
 #include "mddihost.h"
-#include "mipi_dsi_panel_driver.h"
 
 static uint32 mdp_last_dma2_update_width;
 static uint32 mdp_last_dma2_update_height;
@@ -613,10 +612,8 @@ void mdp_dma_pan_update(struct fb_info *info)
 		/* waiting for this update to complete */
 		mfd->pan_waiting = TRUE;
 		wait_for_completion_killable(&mfd->pan_comp);
-	} else {
-//		mipi_dsi_panel_fps_data_update(mfd);
+	} else
 		mfd->dma_fnc(mfd);
-	}
 }
 
 void mdp_refresh_screen(unsigned long data)

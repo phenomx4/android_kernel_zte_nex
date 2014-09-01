@@ -285,7 +285,7 @@ int msm_camera_enable_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 		int num_vreg_seq, struct regulator **reg_ptr, int enable)
 {
 	int i = 0, j = 0, rc = 0;
-	pr_err("%s  %d \n",__func__,__LINE__);
+
 	if (num_vreg_seq > num_vreg) {
 		pr_err("%s:%d vreg sequence invalid\n", __func__, __LINE__);
 		return -EINVAL;
@@ -301,22 +301,6 @@ int msm_camera_enable_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 					continue;
 			} else
 				j = i;
-			
-		if(cam_vreg[j].type== REG_GPIO){
-			pr_err("%s: request and set gpio %d to high for %s regulator\n",
-					__func__, cam_vreg[j].op_mode,cam_vreg[j].reg_name);
-			rc=gpio_request(cam_vreg[j].op_mode,cam_vreg[j].reg_name);
-			if(!rc){
-			rc=gpio_direction_output(cam_vreg[j].op_mode,1);
-			msleep(cam_vreg[j].delay);
-			}else{
-				gpio_free(cam_vreg[j].op_mode);
-				msleep(1);
-				rc=gpio_request(cam_vreg[j].op_mode,cam_vreg[j].reg_name);
-				rc=gpio_direction_output(cam_vreg[j].op_mode,1);
-				msleep(cam_vreg[j].delay);
-			}
-		}else{
 			if (IS_ERR(reg_ptr[j])) {
 				pr_err("%s: %s null regulator\n",
 					__func__, cam_vreg[j].reg_name);
@@ -333,11 +317,8 @@ int msm_camera_enable_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 			else if (cam_vreg[j].delay)
 				usleep_range(cam_vreg[j].delay * 1000,
 					(cam_vreg[j].delay * 1000) + 1000);
-			}
-			
 		}
 	} else {
-	       pr_err("%s:disable vreg num_vreg=%d\n",__func__,num_vreg);
 		for (i = num_vreg_seq-1; i >= 0; i--) {
 			if (vreg_seq) {
 				j = vreg_seq[i];
@@ -345,28 +326,17 @@ int msm_camera_enable_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 					continue;
 			} else
 				j = i;
-			if(cam_vreg[j].type== REG_GPIO){
-			pr_err("%s: set gpio %d to low and free for %s regulator\n",
-					__func__, cam_vreg[j].op_mode,cam_vreg[j].reg_name);
-			rc=gpio_direction_output(cam_vreg[j].op_mode,0);
-			if(!rc){
-			gpio_free(cam_vreg[j].op_mode);
-			msleep(cam_vreg[j].delay);
-			}else{
-				gpio_free(cam_vreg[j].op_mode);
-				msleep(1);
-				rc=gpio_direction_output(cam_vreg[j].op_mode,0);
-				gpio_free(cam_vreg[j].op_mode);
-				msleep(cam_vreg[j].delay);
+			if (IS_ERR(reg_ptr[j])) {
+				pr_err("%s: %s null regulator\n",
+					__func__, cam_vreg[j].reg_name);
+				return -EINVAL;
 			}
-		}else{
 			regulator_disable(reg_ptr[j]);
 			if (cam_vreg[j].delay > 20)
 				msleep(cam_vreg[j].delay);
 			else if (cam_vreg[j].delay)
 				usleep_range(cam_vreg[j].delay * 1000,
 					(cam_vreg[j].delay * 1000) + 1000);
-			}
 		}
 	}
 	return rc;
@@ -378,6 +348,11 @@ disable_vreg:
 				continue;
 		} else
 			j = i;
+		if (IS_ERR(reg_ptr[j])) {
+			pr_err("%s: %s null regulator\n",
+				__func__, cam_vreg[j].reg_name);
+			return -EINVAL;
+		}
 		regulator_disable(reg_ptr[j]);
 		if (cam_vreg[j].delay > 20)
 			msleep(cam_vreg[j].delay);
@@ -416,10 +391,8 @@ int msm_camera_request_gpio_table(struct msm_camera_sensor_info *sinfo,
 	int gpio_en)
 {
 	int rc = 0;
-	int i;	
 	struct msm_camera_gpio_conf *gpio_conf =
 		sinfo->sensor_platform_info->gpio_conf;
-		pr_err("%s  %d gpio_conf->gpio_no_mux=%d \n",__func__,__LINE__,gpio_conf->gpio_no_mux);
 
 	if (!gpio_conf->gpio_no_mux) {
 		if (gpio_conf->cam_gpio_req_tbl == NULL ||
@@ -430,18 +403,15 @@ int msm_camera_request_gpio_table(struct msm_camera_sensor_info *sinfo,
 	}
 	if (gpio_conf->gpio_no_mux)
 		config_gpio_table(gpio_conf);
-       pr_err("%s  %d gpio_ref_count=%d\n",__func__,__LINE__,gpio_ref_count);
+
 	if (gpio_en) {
 		if (!gpio_conf->gpio_no_mux && !gpio_ref_count) {
-			pr_err("%s  %d \n",__func__,__LINE__);
 			if (gpio_conf->cam_gpiomux_conf_tbl != NULL) {
-					pr_err("%s  %d \n",__func__,__LINE__);
 				msm_gpiomux_install(
 					(struct msm_gpiomux_config *)
 					gpio_conf->cam_gpiomux_conf_tbl,
 					gpio_conf->cam_gpiomux_conf_tbl_size);
 			}
-			#if 0  //follow N9100
 			rc = gpio_request_array(gpio_conf->cam_gpio_common_tbl,
 				gpio_conf->cam_gpio_common_tbl_size);
 			if (rc < 0) {
@@ -449,10 +419,8 @@ int msm_camera_request_gpio_table(struct msm_camera_sensor_info *sinfo,
 						, __func__);
 				return rc;
 			}
-			#endif
 		}
 		gpio_ref_count++;
-		#if 0 //follow N9100
 		if (gpio_conf->cam_gpio_req_tbl_size) {
 			rc = gpio_request_array(gpio_conf->cam_gpio_req_tbl,
 				gpio_conf->cam_gpio_req_tbl_size);
@@ -464,31 +432,6 @@ int msm_camera_request_gpio_table(struct msm_camera_sensor_info *sinfo,
 				return rc;
 			}
 		}
-		#endif
-         //yanwei follow N9100
-		for (i = 0; i < gpio_conf->cam_gpio_common_tbl_size; i++){
-			rc=gpio_request_one(gpio_conf->cam_gpio_common_tbl[i].gpio,
-				gpio_conf->cam_gpio_common_tbl[i].flags, gpio_conf->cam_gpio_common_tbl[i].label);
-			if(rc!=0){
-			gpio_free(gpio_conf->cam_gpio_common_tbl[i].gpio);
-			mdelay(1);
-			rc=gpio_request_one(gpio_conf->cam_gpio_common_tbl[i].gpio,
-				gpio_conf->cam_gpio_common_tbl[i].flags, gpio_conf->cam_gpio_common_tbl[i].label);
-			}
-		}
-		for (i = 0; i < gpio_conf->cam_gpio_req_tbl_size; i++){
-			rc=gpio_request_one(gpio_conf->cam_gpio_req_tbl[i].gpio,
-				gpio_conf->cam_gpio_req_tbl[i].flags, gpio_conf->cam_gpio_req_tbl[i].label);
-			if(rc!=0){
-			gpio_free(gpio_conf->cam_gpio_req_tbl[i].gpio);
-			mdelay(1);
-			rc=gpio_request_one(gpio_conf->cam_gpio_req_tbl[i].gpio,
-				gpio_conf->cam_gpio_req_tbl[i].flags, gpio_conf->cam_gpio_req_tbl[i].label);
-			}
-	
-		}
-		//follow N9100
-
 	} else {
 		gpio_ref_count--;
 		gpio_free_array(gpio_conf->cam_gpio_req_tbl,
@@ -506,7 +449,6 @@ int msm_camera_config_gpio_table(struct msm_camera_sensor_info *sinfo,
 	struct msm_camera_gpio_conf *gpio_conf =
 		sinfo->sensor_platform_info->gpio_conf;
 	int rc = 0, i;
-		pr_err("%s  line=%d \n",__func__,__LINE__);
 
 	if (gpio_en) {
 		for (i = 0; i < gpio_conf->cam_gpio_set_tbl_size; i++) {
@@ -518,19 +460,10 @@ int msm_camera_config_gpio_table(struct msm_camera_sensor_info *sinfo,
 		}
 	} else {
 		for (i = gpio_conf->cam_gpio_set_tbl_size - 1; i >= 0; i--) {
-						#if 0 //follow N9100
 			if (gpio_conf->cam_gpio_set_tbl[i].flags)
 				gpio_set_value_cansleep(
 					gpio_conf->cam_gpio_set_tbl[i].gpio,
 					GPIOF_OUT_INIT_LOW);
-			#else //follow N9100
-			gpio_set_value_cansleep(
-				gpio_conf->cam_gpio_set_tbl[i].gpio,
-				gpio_conf->cam_gpio_set_tbl[i].flags);
-			usleep_range(gpio_conf->cam_gpio_set_tbl[i].delay,
-				gpio_conf->cam_gpio_set_tbl[i].delay + 1000);
-			#endif
-
 		}
 	}
 	return rc;

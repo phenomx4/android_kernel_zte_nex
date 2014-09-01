@@ -552,7 +552,6 @@ static int __devexit pm8xxx_rtc_remove(struct platform_device *pdev)
 static void pm8xxx_rtc_shutdown(struct platform_device *pdev)
 {
 	u8 value[4] = {0, 0, 0, 0};
-	u8 value_write; //zte_pm_lhx add code to get rid of current leakage while poweroff after sleep.
 	u8 reg;
 	int rc;
 	unsigned long irq_flags;
@@ -582,10 +581,6 @@ static void pm8xxx_rtc_shutdown(struct platform_device *pdev)
 				rtc_dd->alarm_rw_base, NUM_8_BIT_RTC_REGS);
 		if (rc < 0)
 			dev_err(rtc_dd->rtc_dev, "PM8xxx write failed\n");
-//zte_pm_lhx add code to get rid of current leakage while poweroff after sleep------>>.
-		value_write=0;
-		rc = pm8xxx_write_wrapper(rtc_dd, &value_write, 0x09B, 1);
-//<<-----zte_pm_lhx add code to get rid of current leakage while poweroff after sleep.		
 
 fail_alarm_disable:
 		spin_unlock_irqrestore(&rtc_dd->ctrl_reg_lock, irq_flags);

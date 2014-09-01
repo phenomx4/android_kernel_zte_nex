@@ -16,11 +16,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
- /* ========================================================================================
-when 		who 	   what, where, why 							comment tag
--------- 	----	   -----------------------------				----------------------
-2013-03-28   lichuan   window size ajustment                     ZTE_LC_TCP_WIN
-==========================================================================================*/
 
 #include <linux/kobject.h>
 #include <linux/string.h>
@@ -58,9 +53,8 @@ CREATE_IPV4_FILE(tcp_rmem_min, sysctl_tcp_rmem[0]);
 CREATE_IPV4_FILE(tcp_rmem_def, sysctl_tcp_rmem[1]);
 CREATE_IPV4_FILE(tcp_rmem_max, sysctl_tcp_rmem[2]);
 
-/*ZTE_LC_TCP_WIN, 20130328 start*/
-CREATE_IPV4_FILE(tcp_socket_rwin_init, sysctl_socket_rwin_init);
-/*ZTE_LC_TCP_WIN, 20130328 end*/
+CREATE_IPV4_FILE(tcp_delack_seg, sysctl_tcp_delack_seg);
+CREATE_IPV4_FILE(tcp_use_userconfig, sysctl_tcp_use_userconfig);
 
 static struct attribute *ipv4_attrs[] = {
 	&tcp_wmem_min_attr.attr,
@@ -69,9 +63,8 @@ static struct attribute *ipv4_attrs[] = {
 	&tcp_rmem_min_attr.attr,
 	&tcp_rmem_def_attr.attr,
 	&tcp_rmem_max_attr.attr,
-/*ZTE_LC_TCP_WIN, 20130328 start*/
-	&tcp_socket_rwin_init_attr.attr,
-/*ZTE_LC_TCP_WIN, 20130328 end*/
+	&tcp_delack_seg_attr.attr,
+	&tcp_use_userconfig_attr.attr,
 	NULL
 };
 

@@ -25,10 +25,6 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 
-#ifndef CONFIG_ZTE_PLATFORM
-#define CONFIG_ZTE_PLATFORM
-#endif
-
 struct persistent_ram_buffer {
 	uint32_t    sig;
 	atomic_t    start;
@@ -38,11 +34,7 @@ struct persistent_ram_buffer {
 
 #define PERSISTENT_RAM_SIG (0x43474244) /* DBGC */
 
-#ifndef CONFIG_ZTE_PLATFORM
 static __devinitdata LIST_HEAD(persistent_ram_list);
-#else
-static LIST_HEAD(persistent_ram_list);
-#endif
 
 static inline size_t buffer_size(struct persistent_ram_zone *prz)
 {
@@ -304,6 +296,9 @@ int notrace persistent_ram_write(struct persistent_ram_zone *prz,
 	int c = count;
 	size_t start;
 
+	if (unlikely(prz->buffer->sig != PERSISTENT_RAM_SIG))
+		return -EINVAL;
+
 	if (unlikely(c > prz->buffer_size)) {
 		s += c - prz->buffer_size;
 		c = prz->buffer_size;
@@ -412,10 +407,6 @@ struct persistent_ram_zone *__persistent_ram_init(struct device *dev, bool ecc)
 	struct persistent_ram *ram;
 	struct persistent_ram_zone *prz;
 	int ret = -ENOMEM;
-	
-#ifdef CONFIG_ZTE_PLATFORM
-		bool	haveOldLog	=	false;
-#endif
 
 	prz = kzalloc(sizeof(struct persistent_ram_zone), GFP_KERNEL);
 	if (!prz) {
@@ -447,29 +438,15 @@ struct persistent_ram_zone *__persistent_ram_init(struct device *dev, bool ecc)
 				" size %zu, start %zu\n",
 			       buffer_size(prz), buffer_start(prz));
 			persistent_ram_save_old(prz);
-#ifdef CONFIG_ZTE_PLATFORM
-			haveOldLog	=	true;
-#endif
 		}
 	} else {
-#ifdef CONFIG_ZTE_PLATFORM
-		if(prz->buffer->sig != 0xFFFFFFFF)
-			persistent_ram_save_old(prz);
-#endif
 		pr_info("persistent_ram: no valid data in buffer"
 			" (sig = 0x%08x)\n", prz->buffer->sig);
 	}
 
-#ifdef CONFIG_ZTE_PLATFORM
-	if(!haveOldLog)
-	{
-#endif
 	prz->buffer->sig = PERSISTENT_RAM_SIG;
 	atomic_set(&prz->buffer->start, 0);
 	atomic_set(&prz->buffer->size, 0);
-#ifdef CONFIG_ZTE_PLATFORM
-	}
-#endif
 
 	return prz;
 err:
@@ -501,38 +478,3 @@ int __init persistent_ram_early_init(struct persistent_ram *ram)
 
 	return 0;
 }
-
-#ifdef CONFIG_ZTE_PLATFORM
-struct persistent_ram zte_ram_console_buf;
-struct persistent_ram_descriptor zte_ram_console_des;
-char zte_ram_console_name[15];
-int zte_persistent_ram_init(void)
-{
-	int ret;
-	struct persistent_ram *ram	=	&zte_ram_console_buf;
-	
-	sprintf(zte_ram_console_name,"ram_console");
-	zte_ram_console_des.name	=	zte_ram_console_name;
-	zte_ram_console_des.size	=	SZ_1M;
-
-	zte_ram_console_buf.start	=	0x88D00000;
-	zte_ram_console_buf.size	=	SZ_1M;
-	zte_ram_console_buf.num_descs	=	1;
-	zte_ram_console_buf.descs	=	&zte_ram_console_des;
-	ret = memblock_reserve(ram->start, ram->size);
-	printk("%s, start:%x, size:%x\n",__func__,ram->start, ram->size);
-	if (ret) {
-		pr_err("Failed to reserve persistent memory from %08lx-%08lx\n",
-			(long)ram->start, (long)(ram->start + ram->size - 1));
-		return ret;
-	}
-	
-	INIT_LIST_HEAD(&ram->node);
-	list_add_tail(&(ram->node), &persistent_ram_list);
-
-	//pr_info("Initialized persistent memory from %08lx-%08lx\n",
-	//	(long)ram->start, (long)(ram->start + ram->size - 1));
-
-	return 0;
-}
-#endif

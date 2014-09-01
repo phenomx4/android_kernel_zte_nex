@@ -23,15 +23,6 @@ enum pas_id {
 	PAS_SECAPP,
 	PAS_GSS,
 	PAS_VIDC,
-
-/*
- * Support for CONFIG_ZTE_KMOD_AUTH_SEC by ZTE_BOOT_JIA_20130609 jia.jia
- */
-#if defined(ZTE_FEATURE_TF_SECURITY_SYSTEM)
-#if defined(CONFIG_ZTE_KMOD_AUTH_SEC)
-	PAS_KMOD_AUTH_SEC,
-#endif /* CONFIG_ZTE_KMOD_AUTH_SEC */
-#endif /* ZTE_FEATURE_TF_SECURITY_SYSTEM */
 };
 
 extern int pas_init_image(enum pas_id id, const u8 *metadata, size_t size);

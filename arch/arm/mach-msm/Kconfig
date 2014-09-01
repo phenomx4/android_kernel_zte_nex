@@ -50,13 +50,7 @@ config ARCH_MSM7X30
 	select MSM_REMOTE_SPINLOCK_DEKKERS
 	select ARCH_SPARSEMEM_ENABLE
 	select ARCH_HAS_HOLES_MEMORYMODEL
-	select MEMORY_HOTPLUG
-	select MEMORY_HOTREMOVE
-	select ARCH_ENABLE_MEMORY_HOTPLUG
-	select ARCH_ENABLE_MEMORY_HOTREMOVE
 	select MIGRATION
-	select ARCH_MEMORY_PROBE
-	select ARCH_MEMORY_REMOVE
 	select MSM_GPIOMUX
 	select RESERVE_FIRST_PAGE
 	select MSM_DALRPC
@@ -178,6 +172,10 @@ config ARCH_MSM8960
 	select MSM_KRAIT_WFE_FIXUP
 	select MSM_IOMMU_GPU_SYNC
 	select MSM_CPU_PWRCTL
+	select GENERIC_TIME_VSYSCALL
+	select USE_USER_ACCESSIBLE_TIMERS
+	select ARM_USE_USER_ACCESSIBLE_TIMERS
+	select MSM_USE_USER_ACCESSIBLE_TIMERS
 
 config ARCH_MSM8930
 	bool "MSM8930"
@@ -212,6 +210,10 @@ config ARCH_MSM8930
 	select MSM_KRAIT_WFE_FIXUP
 	select MSM_IOMMU_GPU_SYNC
 	select MSM_CPU_PWRCTL
+	select GENERIC_TIME_VSYSCALL
+	select USE_USER_ACCESSIBLE_TIMERS
+	select ARM_USE_USER_ACCESSIBLE_TIMERS
+	select MSM_USE_USER_ACCESSIBLE_TIMERS
 
 config ARCH_APQ8064
 	bool "APQ8064"
@@ -241,6 +243,10 @@ config ARCH_APQ8064
 	select MSM_KRAIT_WFE_FIXUP
 	select MSM_IOMMU_GPU_SYNC
 	select MSM_CPU_PWRCTL
+	select GENERIC_TIME_VSYSCALL
+	select USE_USER_ACCESSIBLE_TIMERS
+	select ARM_USE_USER_ACCESSIBLE_TIMERS
+	select MSM_USE_USER_ACCESSIBLE_TIMERS
 
 config ARCH_MSM8974
 	bool "MSM8974"
@@ -255,8 +261,6 @@ config ARCH_MSM8974
 	select MSM_PIL
 	select MSM_SPM_V2
 	select MSM_L2_SPM
-	select MSM_NATIVE_RESTART
-	select MSM_RESTART_V2
 	select MSM_PM8X60 if PM
 	select MAY_HAVE_SPARSE_IRQ
 	select SPARSE_IRQ
@@ -407,16 +411,15 @@ config  ARCH_MSM_SCORPIONMP
 	select ARCH_MSM_SCORPION
 	select MSM_SMP
 	select HAVE_ARCH_HAS_CURRENT_TIMER
-	select MSM_JTAG if MSM_QDSS
+	select MSM_JTAG if CORESIGHT_ETM
 	bool
 
 config  ARCH_MSM_KRAITMP
 	select ARCH_MSM_KRAIT
 	select MSM_SMP
 	select HAVE_ARCH_HAS_CURRENT_TIMER
-	select MSM_JTAG if MSM_QDSS
+	select MSM_JTAG if CORESIGHT_ETM
 	bool
-	select HAVE_HW_BRKPT_RESERVED_RW_ACCESS
 
 config  ARCH_MSM_CORTEXMP
 	select MSM_SMP
@@ -425,12 +428,8 @@ config  ARCH_MSM_CORTEXMP
 config  MSM_KRAIT_WFE_FIXUP
 	bool
 
-config  MSM_RESTART_V2
-	bool
-
 config  ARCH_MSM_CORTEX_A5
 	bool
-	select HAVE_HW_BRKPT_RESERVED_RW_ACCESS
 
 config ARCH_MSM7X27A
 	bool
@@ -817,131 +816,6 @@ config MACH_MSM8960_LIQUID
 	help
 	  Support for the Qualcomm MSM8960 LIQUID device.
 
-# Added for ZTE BOARD Num by huang.yanjun begin
-config MACH_APOLLO
-	depends on ARCH_MSM8930
-	bool "ZTE APOLLO"
-	help
-	  Support for the ZTE MSM8930 Apollo device.
-	  APOLLO is first board on MSM8930
-# Added for ZTE BOARD Num by huang.yanjun end
-
-# Added for ZTE BOARD Num by huang.yanjun begin
-#
-# Support for CONFIG_ZTE_KMOD_AUTH_SEC by ZTE_BOOT_JIA_20130609 jia.jia
-# Add 'select ZTE_KMOD_AUTH_SEC' here
-#
-config MACH_WARPLTE
-	depends on ARCH_MSM8930
-	bool "ZTE WARPLTE"
-	select ZTE_KMOD_AUTH_SEC
-	help
-	  Support for the ZTE MSM8930 WARPLTE device.
-# Added for ZTE BOARD Num by huang.yanjun end
-
-# Added for ZTE BOARD Num by huang.yanjun begin
-config MACH_BECKY
-	depends on ARCH_MSM8930
-	bool "ZTE BECKY"
-	help
-	  Support for the ZTE MSM8930 BECKY device.
-# Added for ZTE BOARD Num by huang.yanjun end
-
-# Added for ZTE BOARD Num by huang.yanjun begin
-#
-# Support for CONFIG_ZTE_KMOD_AUTH_SEC by ZTE_BOOT_JIA_20130609 jia.jia
-# Add 'select ZTE_KMOD_AUTH_SEC' here
-#
-config MACH_COEUS
-	depends on ARCH_MSM8930
-	bool "ZTE COEUS"
-	select ZTE_KMOD_AUTH_SEC
-	help
-	  Support for the ZTE MSM8930 Coeus device.
-# Added for ZTE BOARD Num by huang.yanjun end
-
-# Added for ZTE BOARD Num by huang.yanjun begin
-config MACH_DEMETER
-	depends on ARCH_MSM8930
-	bool "ZTE DEMETER"
-	help
-	  Support for the ZTE MSM8930 Demeter device.
-# Added for ZTE BOARD Num by huang.yanjun end
-
-# Added for ZTE BOARD Num by huang.yanjun begin
-config MACH_GAEA
-	depends on ARCH_MSM8930
-	bool "ZTE GAEA"
-	help
-	  Support for the ZTE MSM8930 GAEA device.
-# Added for ZTE BOARD Num by huang.yanjun end
-
-# Added for ZTE BOARD Num by huang.yanjun begin
-config MACH_HERA
-	depends on ARCH_MSM8930
-	bool "ZTE HERA"
-	help
-	  Support for the ZTE MSM8930 HERA device.
-# Added for ZTE BOARD Num by huang.yanjun end
-
-# Added for ZTE BOARD Num by huang.yanjun begin
-config MACH_IRIS
-	depends on ARCH_MSM8930
-	bool "ZTE IRIS"
-	help
-	  Support for the ZTE MSM8930 IRIS device.
-# Added for ZTE BOARD Num by huang.yanjun end
-
-# Added for ZTE BOARD Num by huang.yanjun begin
-config MACH_NEX
-	depends on ARCH_MSM8930
-	bool "ZTE NEX"
-	help
-	  Support for the ZTE MSM8930 NEX device.
-# Added for ZTE BOARD Num by huang.yanjun end
-
-# Added for ZTE BOARD Num by huang.yanjun begin
-config MACH_NESTOR
-	depends on ARCH_MSM8930
-	bool "ZTE NESTOR"
-	help
-	  Support for the ZTE MSM8930 NESTOR device.
-# Added for ZTE BOARD Num by huang.yanjun end
-
-# Added for ZTE BOARD Num by huang.yanjun begin
-config MACH_METIS
-	depends on ARCH_MSM8930
-	bool "ZTE METIS"
-	help
-	  Support for the ZTE MSM8930 METIS device.
-# Added for ZTE BOARD Num by huang.yanjun end
-
-# Added for ZTE BOARD Num by huang.yanjun begin
-config MACH_OCEANUS
-	depends on ARCH_MSM8930
-	bool "ZTE OCEANUS"
-	help
-	  Support for the ZTE MSM8930 OCEANUS device.
-
-config MACH_STORMER
-	depends on ARCH_MSM8930
-	bool "ZTE STORMER"
-	help
-	  Support for the ZTE MSM8930 STORMER device.
-
-# Added for ZTE BOARD Num by huang.yanjun end
-
-# Added for SDLOG ZTE_RIL_RJG_20120630
-config ZTE_SDLOG
-        depends on ARCH_MSM
-        depends on !MSM_STACKED_MEMORY
-        default y
-        bool "sdLog"
-        help
-          Support for sdlog.	  
-
-
-
 config MACH_MSM8930_CDP
 	depends on ARCH_MSM8930
 	bool "MSM8930 CDP"
@@ -959,6 +833,12 @@ config MACH_MSM8930_FLUID
 	bool "MSM8930 FLUID"
 	help
 	  Support for the Qualcomm MSM8930 FLUID device.
+
+config MACH_MSM8930_EVT
+	depends on ARCH_MSM8930
+	bool "MSM8930 QRD EVT"
+	help
+	  Support for the Qualcomm Reference Design 8930 EVT device.
 
 config MACH_MSM8627_CDP
 	depends on ARCH_MSM8930
@@ -1038,7 +918,12 @@ config MACH_FSM9XXX_SURF
 	  chipset based SURF evaluation board and
 	  FFA board.
 
+config MACH_MSM_DUMMY
+	bool "NONE (No device)"
+
 endmenu
+
+source "arch/arm/mach-msm/lge/Kconfig"
 
 config MSM_STACKED_MEMORY
 	bool "Stacked Memory"
@@ -1196,14 +1081,6 @@ choice
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8974 devices.
-
-	config DEBUG_MPQ8092_UART
-                bool "Kernel low-level debugging messages via MPQ8092 UART"
-                depends on ARCH_MPQ8092
-                select MSM_HAS_DEBUG_UART_HS_V14
-                help
-                  Say Y here if you want the debug print routines to direct
-                  their output to the serial port on MPQ8092 devices.
 endchoice
 
 choice
@@ -1433,20 +1310,6 @@ config MSM_PCIE
 	  Enables the PCIe functionality by configures PCIe core on
 	  MSM chipset and by enabling the ARM PCI framework extension.
 
-config MSM_RPC_SDIO_XPRT
-	depends on MSM_SDIO_AL
-	default y
-	bool "MSM SDIO XPRT Layer"
-	help
-	  SDIO Transport Layer for RPC Rouer
-
-config MSM_RPC_SDIO_DEBUG
-	depends on MSM_RPC_SDIO_XPRT
-	default y
-	bool "MSM SDIO XPRT debug support"
-	help
-	  Support for debugging SDIO XPRT
-
 config MSM_SMD_DEBUG
 	depends on MSM_SMD
 	default y
@@ -1454,21 +1317,6 @@ config MSM_SMD_DEBUG
 	help
 	  Support for debugging the SMD for communication
 	  between the ARM9 and ARM11
-
-config MSM_SDIO_AL
-	depends on ((ARCH_MSM7X30 || MACH_MSM8X60_FUSN_FFA || MACH_TYPE_MSM8X60_FUSION) && HAS_WAKELOCK)
-	default y
-	tristate "SDIO-Abstraction-Layer"
-	help
-	  Support MSM<->MDM Communication over SDIO bus.
-	  MDM SDIO-Client should have pipes support.
-
-config MSM_SDIO_DMUX
-	bool "SDIO Data Mux Driver"
-	depends on MSM_SDIO_AL
-	default n
-	help
-	  Support Muxed Data Channels over SDIO interface.
 
 config MSM_BAM_DMUX
 	bool "BAM Data Mux Driver"
@@ -1529,15 +1377,14 @@ config MSM_SMD_NMEA
 
 	  If in doubt, say yes.
 
-config MSM_SDIO_TTY
-	bool "SDIO TTY Driver"
-	depends on MSM_SDIO_AL
+config MSM_HSIC_TTY
+	bool "HSIC TTY Driver"
 	default n
 	help
-	  Provides a TTY driver SDIO TTY
+	  Provides a TTY driver HSIC TTY
 	  This driver can be used by user space
 	  applications for passing data through the
-	  SDIO interface.
+	  HSIC interface.
 
 config MSM_SMD_TTY
 	bool "SMD TTY Driver"
@@ -1566,13 +1413,6 @@ config MSM_SMD_PKT
 
 	  If in doubt, say yes.
 
-config MSM_SDIO_CMUX
-	bool "SDIO CMUX Driver"
-	depends on MSM_SDIO_AL
-	default n
-	help
-	  Provides a Muxed port interface over SDIO QMI
-
 config MSM_DSPS
 	bool "Sensors DSPS driver"
 	depends on (MSM_PIL && (ARCH_MSM8X60 || ARCH_MSM8960))
@@ -1584,13 +1424,6 @@ config MSM_DSPS
 	  themself.
 	  The number of clocks and their name may vary between targets.
 	  It also triggers the PIL to load the DSPS firmware.
-
-config MSM_SDIO_CTL
-	bool "SDIO CTL Driver"
-	depends on MSM_SDIO_CMUX
-	default n
-	help
-	  Provides a binary SDIO control port interface.
 
 config MSM_ONCRPCROUTER
 	depends on MSM_SMD
@@ -1615,6 +1448,26 @@ config MSM_IPC_ROUTER_SMD_XPRT
 	bool "MSM SMD XPRT Layer"
 	help
 	  SMD Transport Layer for IPC Router
+
+config MSM_IPC_ROUTER_HSIC_XPRT
+	depends on USB_QCOM_IPC_BRIDGE
+	depends on MSM_IPC_ROUTER
+	bool "MSM HSIC XPRT Layer"
+	help
+	  HSIC Transport Layer that enables off-chip communication of
+	  IPC Router. When the HSIC endpoint becomes available, this layer
+	  registers the transport with IPC Router and enable message
+	  exchange.
+
+config MSM_IPC_ROUTER_SECURITY
+	depends on MSM_IPC_ROUTER
+	bool "MSM IPC Router Security support"
+	help
+	  This feature of IPC Router will enforce security rules
+	  configured by a security script from the user-space. IPC Router
+	  once configured with the security rules will ensure that the
+	  sender of the message to a service belongs to the relevant
+	  Linux group as configured by the security script.
 
 config MSM_ONCRPCROUTER_DEBUG
 	depends on MSM_ONCRPCROUTER
@@ -1698,15 +1551,6 @@ config MSM_RMT_STORAGE_CLIENT_STATS
 	help
 	  Collects performance statistics and shows this information
 	  through a debugfs file rmt_storage_stats.
-
-config MSM_SDIO_SMEM
-        depends on MSM_SDIO_AL
-        default n
-        bool "SDIO SMEM for remote storage"
-        help
-          Copies data from remote MDM9K memory to local MSM8x60
-	  memory. Used by remote storage client to shadow
-	  MDM9K filesystem.
 
 config MSM_DALRPC
 	bool "DAL RPC support"
@@ -2140,7 +1984,8 @@ config MSM_LPASS_8960
 
 config MSM_WCNSS_SSR_8960
 	tristate "MSM 8960 WCNSS restart module"
-	depends on (ARCH_MSM8960)
+	depends on ARCH_MSM8960
+	depends on WCNSS_CORE
 	help
 	 This option enables the WCNSS restart module for MSM8960, which
 	 monitors WCNSS hardware watchdog interrupt lines and plugs WCNSS
@@ -2153,24 +1998,6 @@ config MSM_GSS_SSR_8064
 	 This option enables the gps subsystem restart driver for APQ8064, which monitors
 	 gss hardware watchdog interrupt lines and plugs into the subsystem
 	 restart and PIL drivers.
-
-config MSM_MODEM_SSR_8974
-	bool "MSM 8974 Modem restart driver"
-	depends on (ARCH_MSM8974)
-	help
-	 This option enables the modem subsystem restart driver for the MSM8974.
-	 It monitors the modem SMSM status bits and the modem watchdog line and
-	 restarts the modem or the 8974 when the modem encounters a fatal error,
-	 depending on the restart level selected in the subsystem restart driver.
-
-config MSM_ADSP_SSR_8974
-	bool "MSM 8974 adsp restart driver"
-	depends on (ARCH_MSM8974)
-	help
-	 This option enables the adsp restart driver for the MSM8974.
-	 It monitors the adsp SMSM status bits and the adsp watchdog line and
-	 restarts the adsp or the 8974 when the adsp encounters a fatal error,
-	 depending on the restart level selected in the subsystem restart driver.
 
 config SCORPION_Uni_45nm_BUG
 	bool "Scorpion Uni 45nm(SC45U): Workaround for ICIMVAU and BPIMVA"
@@ -2309,7 +2136,7 @@ config MSM_MEMORY_DUMP
 
 config MSM_DLOAD_MODE
 	bool "Enable download mode on crashes"
-	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_MSM9615 || ARCH_MSM8974
+	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_MSM9615
 	default n
 	help
 		This makes the SoC enter download mode when it resets
@@ -2318,15 +2145,29 @@ config MSM_DLOAD_MODE
 		enabled via another mechanism.
 
 config MSM_JTAG
-	bool "JTAG and kernel debug and trace support across power collapse"
+	bool "Debug and ETM trace support across power collapse"
 	help
-	  Enables support for kernel debugging (specifically breakpoints) and
+	  Enables support for debugging (specifically breakpoints) and ETM
 	  processor tracing across power collapse both for JTag and OS hosted
 	  software running on the target. Enabling this will ensure debug
 	  and ETM registers are saved and restored across power collapse.
 
-	  For production builds, you should probably say 'N' here to avoid
-	  potential power, performance and memory penalty.
+	  If unsure, say 'N' here to avoid potential power, performance and
+	  memory penalty.
+
+config MSM_JTAG_MM
+	bool "Debug and ETM trace support across power collapse using memory mapped access"
+	help
+	  Enables support for debugging (specifically breakpoints) and ETM
+	  processor tracing across power collapse both for JTag and OS hosted
+	  software running on the target. Enabling this will ensure debug
+	  and ETM registers are saved and restored across power collapse.
+
+	  Required on targets on which cp14 access to debug and ETM registers is
+	  not permitted and so memory mapped access is necessary.
+
+	  If unsure, say 'N' here to avoid potential power, performance and
+	  memory penalty.
 
 config MSM_ETM
 	tristate "Enable MSM ETM and ETB"
@@ -2391,59 +2232,6 @@ config MSM_FAKE_BATTERY
 		help
 		 Enables MSM fake battery driver.
 
-config ZTE_BATTERY_ROUNDTOP_4350MV_1780MAH
-		default n
-		bool "ZTE Battery type1"
-		help
-		 Enables ZTE BMS driver.		
-		 
-config ZTE_BATTERY_NUNIVAK_4350MV_1780MAH
-		default n
-		bool "ZTE Battery type2"
-		help
-		 Enables ZTE BMS driver.	
-		 
-config ZTE_BATTERY_OKMOK_4200MV_1900MAH
-		default n
-		bool "ZTE Battery type3"
-		help
-		 Enables ZTE BMS driver.
-		 
-config ZTE_BATTERY_MAZAMA_4350MV_2500MAH
-		default n
-		bool "ZTE Battery type4"
-		help
-		 Enables ZTE BMS driver.	
-
-config ZTE_BATTERY_QUANTUM_4350MV_2500MAH
-		default n
-		bool "ZTE Battery type5"
-		help
-		 Enables ZTE BMS driver. 
-
-config ZTE_BATTERY_PRINDLE_4350MV_3200MAH
-		default n
-		bool "ZTE Battery type6"
-		help
-		 Enables ZTE BMS driver. 
-
-		 
-# CONFIG_ZTE_JEITA_COMPLIANCE
-config ZTE_JEITA_COMPLIANCE
-		default n
-		bool "ZTE JEITA compliance"
-		help
-		 non JEITA complianc. 
-
-# CONFIG_ZTE_BOARD_WARPLTE_PCB_CZTX add by huang.yanjun
-config ZTE_BOARD_WARPLTE_PCB_CZTX
-	depends on MACH_WARPLTE
-	default n
-	bool "ZTE BOARD WARPLTE PCB CZTX"
-	help
-	  Enable only when the mainboard is WARPLTE and 
-	  PCB code is CZTA,CZTB,CZTC and so on.
-	  
 config MSM_QDSP6_APR
 	bool "Audio QDSP6 APR support"
 	depends on MSM_SMD
@@ -2664,6 +2452,21 @@ config MSM_L1_ERR_PANIC
 
 	  For production builds, you should probably say 'N' here.
 
+config MSM_L1_RECOV_ERR_PANIC
+	bool "Panic on recoverable L1 cache errors"
+	depends on MSM_CACHE_ERP && MSM_L1_ERR_PANIC
+	help
+	  Certain CPU designs may be able to automatically recover from certain
+	  kinds of L1 cache errors, even though the L1 cache itself may not
+	  support error correction. These errors should not result in any kind
+	  of corruption, but their presence is nevertheless an indication of
+	  poor system health. To cause the kernel to panic whenever a
+	  recoverable L1 cache error is detected, say 'Y' here. This may be
+	  useful as a debugging technique if general system instability is
+	  suspected.
+
+	  For production builds, you should definitely say 'N' here.
+
 config MSM_L1_ERR_LOG
 	bool "Log CPU ERP events to system memory"
 	depends on MSM_CACHE_ERP
@@ -2722,25 +2525,6 @@ config MSM_L2_ERP_2BIT_PANIC
 	  For production builds, it may be acceptable to say 'N' here, since
 	  an uncorrectable error might not necessarily cause further problems.
 
-config ZTE_ACPU_OVERCLOCK
-	tristate "zte specify a custom voltage and frequency to overclock"
-	default m
-	help
-	  supply a custom voltage and frequency to acpu overclock	  
-	  
-config ZTE_LONGPOWER_FOR_HW_RESET
-	tristate "zte specify long power pressed for hw reset"
-	default n
-	help
-	  supply a specify long power pressed for hw reset	  
-
-config MSM_CACHE_DUMP
-	bool "Cache dumping support"
-	help
-	  Add infrastructure to dump the L1 and L2 caches to an allocated buffer.
-	  This allows for analysis of the caches in case cache corruption is
-	  suspected.
-
 config MSM_DCVS
 	bool "Use MSM DCVS for CPU/GPU Frequency control"
 	depends on MSM_SCM
@@ -2765,13 +2549,6 @@ config MSM_VP_REGULATOR
 
 config HAVE_ARCH_HAS_CURRENT_TIMER
 	bool
-
-config ZTE_SEC_MEM_DUMP
-	bool "zte sec memory dumping support"
-	default n
-	help
-	  Add infrastructure to dump the memory to an allocated buffer.
-	  This allows for analysis of the meomory  in case  corruption is suspected.
 
 config MSM_CACHE_DUMP
 	bool "Cache dumping support"
@@ -2812,5 +2589,12 @@ config MSM_CPU_PWRCTL
 	  Droop detector mechanism can adversely affect krait plls during
 	  stand alone power collapse operation. Selecting this option
 	  ensures that they are always off.
+
+config MSM_USE_USER_ACCESSIBLE_TIMERS
+	bool "Enables mapping an MSM timer counter page to user space."
+	depends on ARM_USE_USER_ACCESSIBLE_TIMERS
+	help
+	  Enables MSM-specific user accessible timers via a shared
+	  memory page containing the cycle counter.
 
 endif

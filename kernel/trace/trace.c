@@ -1630,7 +1630,7 @@ int trace_array_vprintk(struct trace_array *tr,
 	memcpy(&entry->buf, trace_buf, len);
 	entry->buf[len] = '\0';
 	if (!filter_check_discard(call, entry, buffer, event)) {
-		stm_log(OST_ENTITY_TRACE_PRINTK, event, size);
+		stm_log(OST_ENTITY_TRACE_PRINTK, entry->buf, len + 1);
 		ring_buffer_unlock_commit(buffer, event);
 		ftrace_trace_stack(buffer, irq_flags, 6, pc);
 	}
@@ -3825,10 +3825,11 @@ tracing_mark_write(struct file *filp, const char __user *ubuf,
 	if (entry->buf[cnt - 1] != '\n') {
 		entry->buf[cnt] = '\n';
 		entry->buf[cnt + 1] = '\0';
-	} else
+		stm_log(OST_ENTITY_TRACE_MARKER, entry->buf, cnt + 2);
+	} else {
 		entry->buf[cnt] = '\0';
-
-	stm_log(OST_ENTITY_TRACE_MARKER, event, size);
+		stm_log(OST_ENTITY_TRACE_MARKER, entry->buf, cnt + 1);
+	}
 	ring_buffer_unlock_commit(buffer, event);
 
 	written = cnt;
@@ -4729,7 +4730,7 @@ static __init int tracer_init_debugfs(void)
 	trace_create_file("free_buffer", 0644, d_tracer,
 			&global_trace, &tracing_free_buffer_fops);
 
-	trace_create_file("trace_marker", 0222, d_tracer,
+	trace_create_file("trace_marker", 0220, d_tracer,
 			NULL, &tracing_mark_fops);
 
 	trace_create_file("saved_cmdlines", 0444, d_tracer,

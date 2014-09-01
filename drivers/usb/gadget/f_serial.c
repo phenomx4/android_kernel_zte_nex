@@ -73,9 +73,6 @@ static struct port_info {
 	enum transport_type	transport;
 	unsigned		port_num;
 	unsigned		client_port_num;
-	//xingbeilei
-	int                     enable;
-	//end
 } gserial_ports[GSERIAL_NO_PORTS];
 
 static inline bool is_transport_sdio(enum transport_type t)
@@ -96,7 +93,7 @@ static inline struct f_gser *port_to_gser(struct gserial *p)
 	return container_of(p, struct f_gser, port);
 }
 #define GS_LOG2_NOTIFY_INTERVAL		5	/* 1 << 5 == 32 msec */
-#define GS_NOTIFY_MAXPACKET		10	/* notification + 2 bytes */
+#define GS_NOTIFY_MAXPACKET		16
 #endif
 /*-------------------------------------------------------------------------*/
 
@@ -307,7 +304,6 @@ static int gport_setup(struct usb_configuration *c)
 		ret = ghsic_ctrl_setup(no_hsic_sports, USB_GADGET_SERIAL);
 		if (ret < 0)
 			return ret;
-		return 0;
 	}
 	if (no_hsuart_sports) {
 		port_idx = ghsuart_data_setup(no_hsuart_sports,
@@ -322,8 +318,6 @@ static int gport_setup(struct usb_configuration *c)
 				port_idx++;
 			}
 		}
-
-		return 0;
 	}
 	return ret;
 }
@@ -560,7 +554,6 @@ static int gser_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	gport_connect(gser);
 
 	gser->online = 1;
-	gserial_ports[gser->port_num].enable = gser->online;
 	return rc;
 }
 
@@ -579,7 +572,6 @@ static void gser_disable(struct usb_function *f)
 	gser->notify->driver_data = NULL;
 #endif
 	gser->online = 0;
-	gserial_ports[gser->port_num].enable = gser->online;
 }
 #ifdef CONFIG_MODEM_SUPPORT
 static int gser_notify(struct f_gser *gser, u8 type, u16 value,
@@ -935,7 +927,7 @@ int gser_bind_config(struct usb_configuration *c, u8 port_num)
 	else if (port_num == 1)
 		gser->port.func.name = "nmea";
 	else
-		gser->port.func.name = "at";
+		gser->port.func.name = "modem2";
 	gser->port.func.setup = gser_setup;
 	gser->port.connect = gser_connect;
 	gser->port.get_dtr = gser_get_dtr;
@@ -956,9 +948,11 @@ int gser_bind_config(struct usb_configuration *c, u8 port_num)
 /**
  * gserial_init_port - bind a gserial_port to its transport
  */
-static int gserial_init_port(int port_num, const char *name)
+static int gserial_init_port(int port_num, const char *name,
+		const char *port_name)
 {
 	enum transport_type transport;
+	int ret = 0;
 
 	if (port_num >= GSERIAL_NO_PORTS)
 		return -ENODEV;
@@ -984,6 +978,9 @@ static int gserial_init_port(int port_num, const char *name)
 		no_smd_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
+		ghsic_ctrl_set_port_name(port_name, name);
+		ghsic_data_set_port_name(port_name, name);
+
 		/*client port number will be updated in gport_setup*/
 		no_hsic_sports++;
 		break;
@@ -999,5 +996,5 @@ static int gserial_init_port(int port_num, const char *name)
 
 	nr_ports++;
 
-	return 0;
+	return ret;
 }

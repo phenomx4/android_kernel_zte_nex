@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,12 +18,52 @@
 #include "devices.h"
 #include "board-8930.h"
 
-#ifndef CONFIG_ZTE_PLATFORM
-#define CONFIG_ZTE_PLATFORM
-#endif
+/* GSBI10 UART configurations */
+static struct gpiomux_setting gsbi10_uart_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config msm8930_gsbi10_uart_configs[] __initdata = {
+	{
+		.gpio	= 71,	/* GSBI10 UART TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi10_uart_cfg,
+		},
+	},
+	{
+		.gpio	= 72, /* GSBI10 UART RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi10_uart_cfg,
+		},
+	},
+};
+
+/* GSBI11 UART configurations */
+static struct gpiomux_setting gsbi11_uart_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_10MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config msm8930_gsbi11_uart_configs[] __initdata = {
+	{
+		.gpio	= 38,   /* GSBI11 UART TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi11_uart_cfg,
+		},
+	},
+	{
+		.gpio	= 39, /* GSBI11 UART RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi11_uart_cfg,
+		},
+	},
+};
+
 
 /* The SPI configurations apply to GSBI 1*/
-#ifndef CONFIG_MHL_Sii8334
 static struct gpiomux_setting spi_active = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_12MA,
@@ -35,7 +75,6 @@ static struct gpiomux_setting spi_suspended_config = {
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
-#endif
 
 static struct gpiomux_setting gsbi3_suspended_cfg = {
 	.func = GPIOMUX_FUNC_1,
@@ -49,31 +88,29 @@ static struct gpiomux_setting gsbi3_active_cfg = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-#ifdef CONFIG_MHL_Sii8334
+static struct gpiomux_setting gsbi9_active_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting gsbi9_suspended_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 static struct gpiomux_setting gsbi5 = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-#else
-static struct gpiomux_setting gsbi5 = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-#endif
 
-#ifdef CONFIG_PN544_NFC	/* zte-ccb-20121215 gsbi9 for nfc i2c */
-//#ifndef CONFIG_ZTE_PLATFORM
 static struct gpiomux_setting gsbi9 = {
 	.func = GPIOMUX_FUNC_2,
-//	.drv = GPIOMUX_DRV_2MA,
-//	.pull = GPIOMUX_PULL_DOWN,	/* zte-ccb-20121215 */
-	.drv = GPIOMUX_DRV_8MA,	
+	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-//#endif
-#endif
 
 static struct gpiomux_setting gsbi10 = {
 	.func = GPIOMUX_FUNC_2,
@@ -85,6 +122,21 @@ static struct gpiomux_setting gsbi12 = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting external_vfr[] = {
+	/* Suspended state */
+	{
+		.func = GPIOMUX_FUNC_3,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_KEEPER,
+	},
+	/* Active state */
+	{
+		.func = GPIOMUX_FUNC_3,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_KEEPER,
+	},
 };
 
 static struct gpiomux_setting cdc_mclk = {
@@ -108,48 +160,28 @@ static struct gpiomux_setting audio_auxpcm[] = {
 	},
 };
 
-// chenjun:GPIO50 is Headset Detection
-#if 0
 static struct gpiomux_setting audio_mbhc = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-#else
-static struct gpiomux_setting audio_mbhc = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.dir = GPIOMUX_IN,
-	.pull = GPIOMUX_PULL_NONE,
-};
-#endif
 
-#if 0
 static struct gpiomux_setting audio_spkr_boost = {
 	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-#else
-// chenjun:gpio 14 and 19 are used for speaker amplifier
-static struct gpiomux_setting audio_spkr_boost = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.dir = GPIOMUX_OUT_LOW,
+	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-#endif
+
+static struct gpiomux_setting audio_useuro_switch = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
-static struct gpiomux_setting gpio_eth_suspend_1_cfg = {
-	.pull = GPIOMUX_PULL_DOWN,
-	.drv = GPIOMUX_DRV_2MA,
-	.func = GPIOMUX_FUNC_GPIO,
-};
-
-static struct gpiomux_setting gpio_eth_suspend_2_cfg = {
+static struct gpiomux_setting gpio_eth_config = {
 	.pull = GPIOMUX_PULL_NONE,
-	.drv = GPIOMUX_DRV_2MA,
+	.drv = GPIOMUX_DRV_8MA,
 	.func = GPIOMUX_FUNC_GPIO,
 };
 #endif
@@ -172,9 +204,6 @@ static struct gpiomux_setting wcnss_5wire_active_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
-/* ZTE_BOOT_20130301:huang.yanjun:GPIO52 is hardware version detection ----> */
-#ifndef	CONFIG_ZTE_PLATFORM 
-
 static struct gpiomux_setting atmel_resout_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_6MA,
@@ -186,10 +215,7 @@ static struct gpiomux_setting atmel_resout_act_cfg = {
 	.drv = GPIOMUX_DRV_6MA,
 	.pull = GPIOMUX_PULL_UP,
 };
-#endif
-/* ZTE_BOOT_20130301:huang.yanjun:GPIO52 is hardware version detection <---- */
-// chenjun:GPIO50 is Headset Detection
-#if 0
+
 static struct gpiomux_setting atmel_ldo_en_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_6MA,
@@ -201,7 +227,6 @@ static struct gpiomux_setting atmel_ldo_en_act_cfg = {
 	.drv = GPIOMUX_DRV_6MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
-#endif
 
 static struct gpiomux_setting atmel_int_act_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -212,8 +237,33 @@ static struct gpiomux_setting atmel_int_act_cfg = {
 static struct gpiomux_setting atmel_int_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting synaptic_rmi4_resout_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting synaptic_rmi4_resout_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
 	.pull = GPIOMUX_PULL_UP,
 };
+
+static struct gpiomux_setting synaptic_rmi4_attn_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting synaptic_rmi4_attn_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 #ifdef MSM8930_PHASE_2
 static struct gpiomux_setting hsusb_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -237,8 +287,6 @@ static struct msm_gpiomux_config msm8930_hsusb_configs[] = {
 };
 #endif
 
-/* ZTE_BOOT_20130301:huang.yanjun:GPIO47 is hardware version detection----> */	
-#ifdef CONFIG_MACH_EOS
 static struct gpiomux_setting hap_lvl_shft_suspended_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -250,8 +298,6 @@ static struct gpiomux_setting hap_lvl_shft_active_config = {
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_UP,
 };
-#endif
-/* ZTE_BOOT_20130301:huang.yanjun:GPIO47 is hardware version detection <---- */	
 
 static struct gpiomux_setting ap2mdm_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -296,14 +342,6 @@ static struct gpiomux_setting hdmi_suspend_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
-#ifdef CONFIG_ZTE_PLATFORM
-static struct gpiomux_setting hdmi_suspend_1_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_UP,
-};
-#endif
-
 static struct gpiomux_setting hdmi_active_1_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_2MA,
@@ -346,27 +384,32 @@ static struct gpiomux_setting sitar_reset = {
 	.dir = GPIOMUX_OUT_LOW,
 };
 
+static struct gpiomux_setting usbsw_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 static struct msm_gpiomux_config msm8960_ethernet_configs[] = {
 	{
-		.gpio = 89,
+		.gpio = 90,
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_eth_suspend_1_cfg,
+			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
 		}
 	},
 	{
-		.gpio = 90,
+		.gpio = 89,
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_eth_suspend_2_cfg,
+			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
 		}
 	},
 };
 #endif
 
 static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
-#ifndef CONFIG_ZTE_PLATFORM
 	{
-	.gpio      = 6,		/* GSBI1 QUP SPI_DATA_MOSI */
+		.gpio      = 6,		/* GSBI1 QUP SPI_DATA_MOSI */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &spi_suspended_config,
 			[GPIOMUX_ACTIVE] = &spi_active,
@@ -379,9 +422,6 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 			[GPIOMUX_ACTIVE] = &spi_active,
 		},
 	},
-#endif
-
-#ifndef CONFIG_MHL_Sii8334
 	{
 		.gpio      = 8,		/* GSBI1 QUP SPI_CS_N */
 		.settings = {
@@ -389,8 +429,13 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 			[GPIOMUX_ACTIVE] = &spi_active,
 		},
 	},
-#endif
-
+	{
+		.gpio      = 9,		/* GSBI1 QUP SPI_CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spi_suspended_config,
+			[GPIOMUX_ACTIVE] = &spi_active,
+		},
+	},
 	{
 		.gpio      = 16,	/* GSBI3 I2C QUP SDA */
 		.settings = {
@@ -423,8 +468,6 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi12,
 		},
 	},
-//#ifndef CONFIG_ZTE_PLATFORM
-#ifdef CONFIG_PN544_NFC	/* zte-ccb-20121215 gsbi9 for nfc i2c */
 	{
 		.gpio      = 95,	/* GSBI9 I2C QUP SDA */
 		.settings = {
@@ -437,8 +480,6 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi9,
 		},
 	},
-#endif
-//#endif
 	{
 		.gpio      = 45,	/* GSBI12 I2C QUP SCL */
 		.settings = {
@@ -458,6 +499,78 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 		},
 	},
 };
+
+static struct msm_gpiomux_config msm8930_sglte_gsbi_configs[] __initdata = {
+	/* Add the I2C/SPI GPIOs Here */
+	{
+		.gpio      = 6,		/* GSBI1 TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spi_suspended_config,
+			[GPIOMUX_ACTIVE] = &spi_active,
+		},
+	},
+	{
+		.gpio      = 7,		/* GSBI1 RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spi_suspended_config,
+			[GPIOMUX_ACTIVE] = &spi_active,
+		},
+	},
+	{
+		.gpio      = 8,		/* GSBI1 CTS_N */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spi_suspended_config,
+			[GPIOMUX_ACTIVE] = &spi_active,
+		},
+	},
+	{
+		.gpio      = 9,		/* GSBI1 RFR_N */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spi_suspended_config,
+			[GPIOMUX_ACTIVE] = &spi_active,
+		},
+	},
+	{
+		.gpio      = 16,	/* GSBI3 I2C QUP SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi3_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi3_active_cfg,
+		},
+	},
+	{
+		.gpio      = 17,	/* GSBI3 I2C QUP SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi3_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi3_active_cfg,
+		},
+	},
+	{
+		.gpio      = 44,	/* GSBI12 I2C QUP SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi12,
+		},
+	},
+	{
+		.gpio      = 45,	/* GSBI12 I2C QUP SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi12,
+		},
+	},
+	{
+		.gpio      = 73,	/* GSBI10 I2C QUP SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi10,
+		},
+	},
+	{
+		.gpio      = 74,	/* GSBI10 I2C QUP SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi10,
+		},
+	},
+
+};
+
 
 static struct msm_gpiomux_config msm8960_slimbus_config[] __initdata = {
 	{
@@ -484,26 +597,35 @@ static struct msm_gpiomux_config msm8960_audio_codec_configs[] __initdata = {
 };
 
 static struct msm_gpiomux_config msm8960_audio_mbhc_configs[] __initdata = {
-// chenjun:GPIO50 is Headset Detection
-#if 0
 	{
 		.gpio = 37,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &audio_mbhc,
 		},
 	},
-#else
-	{	/* Headset Detection */
+	{
+		.gpio = 80,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_useuro_switch,
+		},
+	},
+};
+
+static struct msm_gpiomux_config msm8960_audio_mbhc_configs_sglte[] __initdata = {
+	{
 		.gpio = 50,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &audio_mbhc,
 			[GPIOMUX_SUSPENDED] = &audio_mbhc,
 		},
 	},
-#endif
+	{
+		.gpio = 66,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_useuro_switch,
+		},
+	},
 };
 
-#if 0
 static struct msm_gpiomux_config msm8960_audio_spkr_configs[] __initdata = {
 	{
 		.gpio = 15,
@@ -512,24 +634,6 @@ static struct msm_gpiomux_config msm8960_audio_spkr_configs[] __initdata = {
 		},
 	},
 };
-#else
-// chenjun:gpio 14 and 19 are used for speaker amplifier
-static struct msm_gpiomux_config msm8960_audio_spkr_configs[] __initdata = {
-	{
-		.gpio = 14,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &audio_spkr_boost,
-		},
-	},
-	{
-		.gpio = 19,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &audio_spkr_boost,
-		},
-	},
-};
-#endif
-
 
 static struct msm_gpiomux_config msm8960_audio_auxpcm_configs[] __initdata = {
 	{
@@ -608,8 +712,6 @@ static struct msm_gpiomux_config msm8960_atmel_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &atmel_int_sus_cfg,
 		},
 	},
-// chenjun:GPIO50 is Headset Detection
-#if 0
 	{	/* TS LDO ENABLE */
 		.gpio = 50,
 		.settings = {
@@ -617,11 +719,6 @@ static struct msm_gpiomux_config msm8960_atmel_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &atmel_ldo_en_sus_cfg,
 		},
 	},
-#endif
-
-/* ZTE_BOOT_20130301:huang.yanjun:GPIO52 is hardware version detection ----> */
-#ifndef	CONFIG_ZTE_PLATFORM
-
 	{	/* TS RESOUT */
 		.gpio = 52,
 		.settings = {
@@ -629,28 +726,32 @@ static struct msm_gpiomux_config msm8960_atmel_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &atmel_resout_sus_cfg,
 		},
 	},
-#endif	
-/* ZTE_BOOT_20130301:huang.yanjun:GPIO52 is hardware version detection <---- */
+};
+
+static struct msm_gpiomux_config msm8960_synaptic_rmi4_configs[] __initdata = {
+	{       /* TS INTERRUPT */
+		.gpio = 11,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &synaptic_rmi4_attn_act_cfg,
+			[GPIOMUX_SUSPENDED] = &synaptic_rmi4_attn_sus_cfg,
+		},
+	},
+	{       /* TS RESOUT */
+		.gpio = 52,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &synaptic_rmi4_resout_act_cfg,
+			[GPIOMUX_SUSPENDED] = &synaptic_rmi4_resout_sus_cfg,
+		},
+	},
 };
 
 static struct msm_gpiomux_config hap_lvl_shft_config[] __initdata = {
 	{
-/* ZTE_BOOT_20130301:huang.yanjun:GPIO47 is hardware version detection----> */		
-#ifdef CONFIG_MACH_EOS		
 		.gpio = 47,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &hap_lvl_shft_suspended_config,
 			[GPIOMUX_ACTIVE] = &hap_lvl_shft_active_config,
 		},
-#else
-		.gpio = 47,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = NULL,
-			[GPIOMUX_ACTIVE] = NULL,
-		},
-
-#endif
-/* ZTE_BOOT_20130301:huang.yanjun:GPIO47 is hardware version detection <---- */
 	},
 };
 
@@ -677,16 +778,12 @@ static struct msm_gpiomux_config mdm_configs[] __initdata = {
 		}
 	},
 	/* AP2MDM_ERRFATAL */
-	#ifndef CONFIG_ZTE_PLATFORM
-	#ifndef	CONFIG_PN544_NFC		/* zte-ccb-20121215 gpio95 for nfc i2c data */
 	{
 		.gpio = 95,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
 		}
 	},
-	#endif
-	#endif
 	/* AP2MDM_KPDPWR_N */
 	{
 		.gpio = 81,
@@ -726,22 +823,14 @@ static struct msm_gpiomux_config msm8960_hdmi_configs[] __initdata = {
 		.gpio = 100,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
-#ifndef CONFIG_ZTE_PLATFORM
 			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
-#else
-			[GPIOMUX_SUSPENDED] = &hdmi_suspend_1_cfg,
-#endif
 		},
 	},
 	{
 		.gpio = 101,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
-#ifndef CONFIG_ZTE_PLATFORM
 			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
-#else
-			[GPIOMUX_SUSPENDED] = &hdmi_suspend_1_cfg,
-#endif	
 		},
 	},
 	{
@@ -824,168 +913,15 @@ static struct msm_gpiomux_config msm8930_sd_det_config[] __initdata = {
 	},
 };
 
-#ifdef CONFIG_ZTE_PLATFORM
-static struct gpiomux_setting gpio_out_high_pull_up_config = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.dir = GPIOMUX_OUT_HIGH,
-	.pull = GPIOMUX_PULL_UP,
-};
-
-static struct gpiomux_setting gpio_pull_down_config = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	//.dir = GPIOMUX_IN,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-
-static struct gpiomux_setting gpio_pull_up_config = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_UP,
-};
-
-#if 0
-static struct gpiomux_setting gpio_pull_none_config = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-#endif
-
-
-static struct msm_gpiomux_config msm8930_zte_config[] __initdata = {
+static struct msm_gpiomux_config msm8930_sd_det_config_evt[] __initdata = {
 	{
-		.gpio = 6,
+		.gpio = 90,	/* SD Card Detect Line */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_up_config,
-		},
-	},
-			
-#ifdef CONFIG_MHL_Sii8334
-	{
-		.gpio      = 7,		/* GSBI1 QUP SPI_DATA_MISO */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
-			[GPIOMUX_ACTIVE] = &hdmi_active_3_cfg,
-		},
-	},
-	{
-		.gpio      = 8,		/* GSBI1 QUP SPI_CS_N */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
-			[GPIOMUX_ACTIVE] = &hdmi_active_4_cfg,
-		},
-	},
-#else
-	{
-		.gpio = 7,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_up_config,
-		},
-	},
-#endif
-	
-	{
-		.gpio = 18,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_down_config,
-		},
-	},
-// chenjun:gpio 14 and 19 are used for speaker amplifier
-#if 0
-	{
-		.gpio = 19,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_down_config,
-		},
-	},
-#endif
-
-#ifdef CONFIG_MHL_Sii8334
-		{
-			.gpio	   = 24,	/* GSBI5 I2C */
-			.settings = {
-				[GPIOMUX_SUSPENDED] = &gsbi5,
-				[GPIOMUX_ACTIVE] = &gsbi5,
-			},
-		},
-		{
-			.gpio	   = 25,	/* GSBI5 I2C */
-			.settings = {
-				[GPIOMUX_SUSPENDED] = &gsbi5,
-				[GPIOMUX_ACTIVE] = &gsbi5,
-			},
-		},
-#else
-	{
-		.gpio = 24,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_up_config,
-		},
-	},
-	{
-		.gpio = 25,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_up_config,
-		},
-	},
-#endif
-	
-	{
-		.gpio = 42,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_up_config,
-		},
-	},
-	{
-		.gpio = 46,						//not use
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_down_config,
-		},
-	},
-	{
-		.gpio = 74,						//not use
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_down_config,
-		},
-	},
-	{
-		.gpio = 80,						//not use
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_down_config,
-		},
-	},
-	{
-		.gpio = 90,						//not use
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_down_config,
-		},
-	},
-	#ifndef CONFIG_ZTE_PLATFORM
-	#ifndef	CONFIG_PN544_NFC			/* zte-ccb-20121215 gpio96 for nfc i2c clk */
-	{
-		.gpio = 96,						//not use
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_down_config,
-		},
-	},
-	#endif
-	#endif
-	{
-		.gpio	   = 106,				//not use
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pull_down_config,
-		},
-	},
-	{
-		.gpio	   = 107,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_out_high_pull_up_config,
+			[GPIOMUX_SUSPENDED] = &sd_det_line,
+			[GPIOMUX_ACTIVE] = &sd_det_line,
 		},
 	},
 };
-#endif
 
 static struct gpiomux_setting gyro_int_line = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -1012,6 +948,159 @@ static struct msm_gpiomux_config msm_sitar_config[] __initdata = {
 	}
 };
 
+static struct msm_gpiomux_config sglte_8930_configs[] __initdata = {
+	/* AP2MDM_STATUS */
+	{
+		.gpio = 77,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
+		}
+	},
+	/* MDM2AP_STATUS */
+	{
+		.gpio = 24,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm2ap_status_cfg,
+		}
+	},
+	/* MDM2AP_ERRFATAL */
+	{
+		.gpio = 40,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm2ap_errfatal_cfg,
+		}
+	},
+	/* AP2MDM_ERRFATAL */
+	{
+		.gpio = 80,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
+		}
+	},
+	/* AP2MDM_KPDPWR_N */
+	{
+		.gpio = 79,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_kpdpwr_n_cfg,
+		}
+	},
+	/* AP2MDM_PMIC_PWR_EN */
+	{
+		.gpio = 22,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_kpdpwr_n_cfg,
+		}
+	},
+	/* AP2MDM_SOFT_RESET */
+	{
+		.gpio = 78,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
+		}
+	},
+	/* USB_SW */
+	{
+		.gpio = 25,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &usbsw_cfg,
+		}
+	}
+};
+
+static struct msm_gpiomux_config msm8930_fusion_gsbi_configs[] = {
+	{
+		.gpio = 93,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi9_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi9_active_cfg,
+		}
+	},
+	{
+		.gpio = 94,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi9_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi9_active_cfg,
+		}
+	},
+	{
+		.gpio = 95,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi9_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi9_active_cfg,
+		}
+	},
+	{
+		.gpio = 96,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi9_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi9_active_cfg,
+		}
+	},
+};
+
+static struct msm_gpiomux_config msm8930_external_vfr_configs[] __initdata = {
+	{
+		.gpio      = 23,        /* EXTERNAL VFR */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &external_vfr[0],
+			[GPIOMUX_ACTIVE] = &external_vfr[1],
+		},
+	},
+};
+
+int __init sglte8930_init_gpiomux(void)
+{
+	int minor_ver = SOCINFO_VERSION_MINOR(socinfo_get_platform_version());
+	int major_ver = SOCINFO_VERSION_MAJOR(socinfo_get_platform_version());
+
+	/* For 8960 Fusion 2.2 Primary IPC */
+	msm_gpiomux_install(msm8930_fusion_gsbi_configs,
+			ARRAY_SIZE(msm8930_fusion_gsbi_configs));
+	/* For 8930 SGLTE Serial Console */
+	if (machine_is_msm8930_evt() && major_ver == 1) {
+		if (minor_ver == 0)
+			msm_gpiomux_install(msm8930_gsbi10_uart_configs,
+				ARRAY_SIZE(msm8930_gsbi10_uart_configs));
+		else if (minor_ver == 1)
+			msm_gpiomux_install(msm8930_gsbi11_uart_configs,
+				ARRAY_SIZE(msm8930_gsbi11_uart_configs));
+	}
+
+	/* For SGLTE 8960 Fusion External VFR */
+	msm_gpiomux_install(msm8930_external_vfr_configs,
+			ARRAY_SIZE(msm8930_external_vfr_configs));
+	msm_gpiomux_install(sglte_8930_configs,
+			ARRAY_SIZE(sglte_8930_configs));
+
+	msm_gpiomux_install(msm8930_sglte_gsbi_configs,
+			ARRAY_SIZE(msm8930_sglte_gsbi_configs));
+
+	msm_gpiomux_install(msm8960_slimbus_config,
+			ARRAY_SIZE(msm8960_slimbus_config));
+
+	msm_gpiomux_install(msm8960_audio_codec_configs,
+			ARRAY_SIZE(msm8960_audio_codec_configs));
+
+	msm_gpiomux_install(wcnss_5wire_interface,
+			ARRAY_SIZE(wcnss_5wire_interface));
+
+	msm_gpiomux_install(msm8960_mdp_vsync_configs,
+			ARRAY_SIZE(msm8960_mdp_vsync_configs));
+
+	msm_gpiomux_install(msm_sitar_config, ARRAY_SIZE(msm_sitar_config));
+
+	msm_gpiomux_install(msm8960_synaptic_rmi4_configs,
+			ARRAY_SIZE(msm8960_synaptic_rmi4_configs));
+
+	msm_gpiomux_install(msm8930_sd_det_config_evt,
+			ARRAY_SIZE(msm8930_sd_det_config_evt));
+
+	msm_gpiomux_install(msm8960_audio_mbhc_configs_sglte,
+			ARRAY_SIZE(msm8960_audio_mbhc_configs_sglte));
+
+	return 0;
+}
+
 int __init msm8930_init_gpiomux(void)
 {
 	int rc = msm_gpiomux_init(NR_GPIO_IRQS);
@@ -1019,6 +1108,9 @@ int __init msm8930_init_gpiomux(void)
 		pr_err(KERN_ERR "msm_gpiomux_init failed %d\n", rc);
 		return rc;
 	}
+
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+		return sglte8930_init_gpiomux();
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	msm_gpiomux_install(msm8960_ethernet_configs,
@@ -1048,11 +1140,6 @@ int __init msm8930_init_gpiomux(void)
 
 	msm_gpiomux_install(wcnss_5wire_interface,
 			ARRAY_SIZE(wcnss_5wire_interface));
-	
-#ifdef CONFIG_ZTE_PLATFORM
-	msm_gpiomux_install(msm8930_zte_config,
-			ARRAY_SIZE(msm8930_zte_config));
-#endif
 
 	if (machine_is_msm8930_mtp() || machine_is_msm8930_fluid() ||
 		machine_is_msm8930_cdp()) {
@@ -1076,7 +1163,7 @@ int __init msm8930_init_gpiomux(void)
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 	msm_gpiomux_install(msm8960_hdmi_configs,
 			ARRAY_SIZE(msm8960_hdmi_configs));
-	if (msm8930_mhl_display_enabled())
+	if (machine_is_msm8930_fluid())
 		msm_gpiomux_install(msm8930_mhl_configs,
 				ARRAY_SIZE(msm8930_mhl_configs));
 #endif

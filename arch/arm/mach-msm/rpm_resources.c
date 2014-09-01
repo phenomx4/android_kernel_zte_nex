@@ -39,7 +39,6 @@ enum {
 	MSM_RPMRS_DEBUG_OUTPUT = BIT(0),
 	MSM_RPMRS_DEBUG_BUFFER = BIT(1),
 	MSM_RPMRS_DEBUG_EVENT_TIMER = BIT(2),
-	MSM_RPMRS_DEBUG_ZTE = BIT(3),//zhengchao
 };
 
 static int msm_rpmrs_debug_mask;
@@ -910,17 +909,10 @@ static void *msm_rpmrs_lowest_limits(bool from_idle,
 		irqs_detectable = msm_mpm_irqs_detectable(from_idle);
 		gpio_detectable = msm_mpm_gpio_irqs_detectable(from_idle);
 	}
-	if (!from_idle && (MSM_RPMRS_DEBUG_ZTE & msm_rpmrs_debug_mask))
-                pr_info("[ZTE-DBG]%s: %d irq_det=%d gpio_det=%d\n", 
-			__func__, __LINE__,irqs_detectable,gpio_detectable);
 
 	for (i = 0; i < msm_rpmrs_level_count; i++) {
 		struct msm_rpmrs_level *level = &msm_rpmrs_levels[i];
-		
-		if (!from_idle && (MSM_RPMRS_DEBUG_ZTE & msm_rpmrs_debug_mask))
-        	pr_info(" [%02d]level=%d avail=%d\n", i, level->sleep_mode,
-			level->available);
-		
+
 		modify_event_timer = false;
 
 		if (!level->available)
@@ -929,13 +921,8 @@ static void *msm_rpmrs_lowest_limits(bool from_idle,
 		if (sleep_mode != level->sleep_mode)
 			continue;
 
-        if (!from_idle && (MSM_RPMRS_DEBUG_ZTE & msm_rpmrs_debug_mask))
-        	pr_info("[ZTE-DBG]%s: %d \n", __func__, __LINE__);
 		if (time_param->latency_us < level->latency_us)
 			continue;
-			
-		if (!from_idle && (MSM_RPMRS_DEBUG_ZTE & msm_rpmrs_debug_mask))
-        	pr_info("[ZTE-DBG]%s: %d \n", __func__, __LINE__);
 
 		if (time_param->next_event_us &&
 				time_param->next_event_us < level->latency_us)
@@ -958,15 +945,13 @@ static void *msm_rpmrs_lowest_limits(bool from_idle,
 					irqs_detectable, gpio_detectable))
 			continue;
 
-
-        if (!from_idle && (MSM_RPMRS_DEBUG_ZTE & msm_rpmrs_debug_mask))
-        	pr_info("[ZTE-DBG]%s: %d \n", __func__, __LINE__);
-
 		if ((MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE == sleep_mode)
 			|| (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == sleep_mode))
-			if (!cpu && msm_rpm_local_request_is_outstanding())
-					break;
-
+			if (!cpu && msm_rpm_local_request_is_outstanding()) {
+				if (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)
+					pr_info(" RPM Request is outstanding\n");
+				break;
+			}
 		if (next_wakeup_us <= 1) {
 			pwr = level->energy_overhead;
 		} else if (next_wakeup_us <= level->time_overhead_us) {
@@ -1148,9 +1133,8 @@ static struct msm_pm_sleep_ops msm_rpmrs_ops = {
 
 static int __init msm_rpmrs_l2_init(void)
 {
-	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8930aa() ||
-	    cpu_is_apq8064() || cpu_is_msm8627() || cpu_is_msm8960ab() ||
-						cpu_is_apq8064ab()) {
+	if (soc_class_is_msm8960() || soc_class_is_msm8930() ||
+	    soc_class_is_apq8064()) {
 
 		msm_pm_set_l2_flush_flag(0);
 

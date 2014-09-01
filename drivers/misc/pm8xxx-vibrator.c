@@ -145,8 +145,6 @@ static void pm8xxx_vib_enable(struct timed_output_dev *dev, int value)
 					 timed_dev);
 	unsigned long flags;
 
-	printk("vib-zte pm8xxx_vib_enable(%dms)\n",value);	//zte-ccb add log print
-
 retry:
 	spin_lock_irqsave(&vib->lock, flags);
 	if (hrtimer_try_to_cancel(&vib->vib_timer) < 0) {
@@ -272,7 +270,7 @@ static int __devinit pm8xxx_vib_probe(struct platform_device *pdev)
 	if (rc < 0)
 		goto err_read_vib;
 
-	//pm8xxx_vib_enable(&vib->timed_dev, pdata->initial_vibrate_ms);   //zte-ccb-20121217 vibrate move to appboot
+	pm8xxx_vib_enable(&vib->timed_dev, pdata->initial_vibrate_ms);
 
 	platform_set_drvdata(pdev, vib);
 

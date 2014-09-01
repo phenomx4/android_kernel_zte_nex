@@ -301,12 +301,6 @@ int power_supply_uevent(struct device *dev, struct kobj_uevent_env *env)
 		dev_dbg(dev, "prop %s=%s\n", attrname, prop_buf);
 
 		ret = add_uevent_var(env, "POWER_SUPPLY_%s=%s", attrname, prop_buf);
-		if(psy->properties[j]	==	POWER_SUPPLY_PROP_STATUS
-			|| psy->properties[j]	==	POWER_SUPPLY_PROP_HEALTH
-			|| psy->properties[j]	==	POWER_SUPPLY_PROP_CAPACITY
-			|| psy->properties[j]	==	POWER_SUPPLY_PROP_ONLINE
-			|| psy->properties[j]	==	POWER_SUPPLY_PROP_TYPE)
-		printk("POWER_SUPPLY_%s=%s\n", attrname, prop_buf);		//zte jiangfeng debug
 		kfree(attrname);
 		if (ret)
 			goto out;
