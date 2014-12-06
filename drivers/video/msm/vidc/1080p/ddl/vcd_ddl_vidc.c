@@ -742,15 +742,8 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 	default:
 	break;
 	}
-	if ((encoder->buf_format.buffer_format ==
-			VCD_BUFFER_FORMAT_NV21_16M2KA)) {
-		DDL_MSG_LOW("NV21 Input format is set to the core");
-		vidc_1080p_set_enc_NV21(true);
-	}
-	if ((encoder->buf_format.buffer_format ==
-		VCD_BUFFER_FORMAT_NV12_16M2KA) ||
-		(encoder->buf_format.buffer_format ==
-		VCD_BUFFER_FORMAT_NV21_16M2KA))
+	if (encoder->buf_format.buffer_format ==
+		VCD_BUFFER_FORMAT_NV12_16M2KA)
 		mem_access_method = VIDC_1080P_TILE_LINEAR;
 	else
 		mem_access_method = VIDC_1080P_TILE_64x32;
